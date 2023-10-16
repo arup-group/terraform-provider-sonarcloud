@@ -444,7 +444,7 @@ func diffName(old, new QualityGate) bool {
 	return true
 }
 
-//Check if a Quality Gate has been set to default
+// Check if a Quality Gate has been set to default
 func diffDefault(old, new QualityGate) bool {
 	if old.IsDefault.Equal(new.IsDefault) {
 		return false

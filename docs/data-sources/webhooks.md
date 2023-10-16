@@ -29,9 +29,9 @@ This datasource retrieves the list of webhooks for a project or the organization
 
 Read-Only:
 
+- `has_secret` (Boolean) Whether the webhook has a secret.
 - `key` (String) The key of the webhook.
 - `name` (String) The name the webhook.
-- `secret` (String, Sensitive) The secret of the webhook. Used as the key to generate the HMAC hex (lowercase) digest value in the 'X-Sonar-Webhook-HMAC-SHA256' header.
 - `url` (String) The url of the webhook.
 
 
