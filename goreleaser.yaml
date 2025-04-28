@@ -33,7 +33,7 @@ builds:
   binary: '{{ .ProjectName }}_{{ .Version }}'
 archives:
 - name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
-  # Removed deprecated 'format' field
+  format: zip
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
   algorithm: sha256
