@@ -1,5 +1,5 @@
 TESTARGS?=$$(go list ./... | grep -v 'vendor')
-HOSTNAME=rewe-digital.com
+HOSTNAME=arup.com
 NAMESPACE=platform
 NAME=sonarcloud
 VERSION?=0.1.0-local
@@ -9,7 +9,7 @@ BINARY_GLOB=./dist/terraform-provider-${NAME}_${OS_ARCH}/terraform*
 default: install
 
 build:
-	GORELEASER_CURRENT_TAG=$(VERSION) goreleaser build --snapshot --rm-dist
+	GORELEASER_CURRENT_TAG=$(VERSION) goreleaser build --snapshot --clean
 
 install: build
 	mkdir -p ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
