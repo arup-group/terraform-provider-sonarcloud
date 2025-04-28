@@ -1,3 +1,4 @@
+#!/bin/sh
 # import user group permissions for the whole organization using <name>
 terraform import "sonarcloud_user_group_permissions.example_group" "Example Group"
 

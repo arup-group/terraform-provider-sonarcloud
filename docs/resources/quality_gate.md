@@ -73,6 +73,7 @@ Read-Only:
 Import is supported using the following syntax:
 
 ```shell
+#!/bin/sh
 # import a quality gate using <quality gate name>
 terraform import "sonarcloud_quality_gate.very_strict" "Very Strict"
 ```

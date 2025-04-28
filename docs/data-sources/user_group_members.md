@@ -12,7 +12,7 @@ Data source that retrieves a list of users of the given group.
 
 ## Example Usage
 
-->Use the default `Members` group to fetch all users of the organization. 
+->Use the default `Members` group to fetch all users of the organization.
 
 ```terraform
 data "sonarcloud_user_group_members" "members" {

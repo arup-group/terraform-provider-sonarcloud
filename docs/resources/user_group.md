@@ -41,6 +41,7 @@ resource "sonarcloud_user_group" "example_group" {
 Import is supported using the following syntax:
 
 ```shell
+#!/bin/sh
 # import a user group using  <group_name>
 terraform import "sonarcloud_user_group.qa_team" "QA Team"
 ```

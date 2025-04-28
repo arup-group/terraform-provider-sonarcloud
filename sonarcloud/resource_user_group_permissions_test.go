@@ -104,7 +104,7 @@ func testAccPermissionDestroy(s *terraform.State) error {
 func testAccPermissionConfig(project string, name string, permissions []string) string {
 	result := fmt.Sprintf(`
 resource "sonarcloud_user_group_permissions" "test_permission" {
-	project_key = "%s"	
+	project_key = "%s"
 	name = "%s"
 	permissions = %s
 }

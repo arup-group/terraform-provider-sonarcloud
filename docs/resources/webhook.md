@@ -35,6 +35,7 @@ This resource represents a project or organization webhook.
 Import is supported using the following syntax:
 
 ```shell
+#!/bin/sh
 # import a webhook for the whole organization using <id>
 terraform import "sonarcloud_webhook.example" "ABCDEFGHIJKLMNOPQRST"
 
