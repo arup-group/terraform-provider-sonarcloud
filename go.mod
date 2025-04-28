@@ -1,6 +1,8 @@
 module terraform-provider-sonarcloud
 
-go 1.18
+go 1.23.0
+
+toolchain go1.23.2
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.0
