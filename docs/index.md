@@ -16,8 +16,8 @@ The SonarCloud provider provides resources and data sources to manage a SonarClo
 terraform {
   required_providers {
     sonarcloud = {
-      source  = "rewe-digital/sonarcloud"
-      version = "0.1.1"
+      source  = "arup-group/sonarcloud"
+      version = "0.6.1"
     }
   }
 }
