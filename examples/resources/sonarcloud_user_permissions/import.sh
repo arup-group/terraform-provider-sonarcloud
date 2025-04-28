@@ -1,3 +1,4 @@
+#!/bin/sh
 # import user permissions for the whole organization using <login>
 terraform import "sonarcloud_user_permissions.example_user" "user@github.com"
 

@@ -31,3 +31,5 @@ resource "sonarcloud_user_token" "test_token" {
 
 - `id` (String) The ID of this resource.
 - `token` (String, Sensitive) The value of the generated token.
+
+

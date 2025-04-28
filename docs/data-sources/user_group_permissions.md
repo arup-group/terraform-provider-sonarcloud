@@ -33,3 +33,5 @@ Read-Only:
 - `id` (String) The ID of the user group.
 - `name` (String) The name of the user group.
 - `permissions` (Set of String) The permissions of this user group.
+
+

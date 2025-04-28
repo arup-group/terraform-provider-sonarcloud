@@ -1,3 +1,4 @@
+#!/bin/sh
 # import a webhook for the whole organization using <id>
 terraform import "sonarcloud_webhook.example" "ABCDEFGHIJKLMNOPQRST"
 

@@ -35,6 +35,7 @@ This resource manages the permissions of a user for the whole organization or a 
 Import is supported using the following syntax:
 
 ```shell
+#!/bin/sh
 # import user permissions for the whole organization using <login>
 terraform import "sonarcloud_user_permissions.example_user" "user@github.com"
 

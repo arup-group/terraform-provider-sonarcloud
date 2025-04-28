@@ -64,6 +64,7 @@ repos:
     stages: [pre-commit]
   - id: end-of-file-fixer
     stages: [pre-commit]
+    exclude: ^docs/.*\.md$
   - id: check-yaml
   - id: check-xml
   - id: check-json

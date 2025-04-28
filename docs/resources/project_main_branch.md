@@ -41,6 +41,7 @@ resource "sonarcloud_project_main_branch" "main" {
 Import is supported using the following syntax:
 
 ```shell
+#!/bin/sh
 # import a project main branch using <branch name>,<project_key>
 terraform import "sonarcloud_project_main_branch.example_project" "main,example_project"
 ```

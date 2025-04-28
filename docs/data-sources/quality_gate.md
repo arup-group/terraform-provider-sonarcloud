@@ -48,3 +48,5 @@ Read-Only:
 - `error` (String) The value on which the condition errors.
 - `id` (Number) ID of the Condition.
 - `metric` (String) The metric on which the condition is based. Must be one of: https://docs.sonarqube.org/latest/user-guide/metric-definitions/
+
+

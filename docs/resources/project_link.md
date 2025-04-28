@@ -30,6 +30,7 @@ This resource represents a project link.
 Import is supported using the following syntax:
 
 ```shell
+#!/bin/sh
 # import a project link using <id>,<project_key>
 terraform import "sonarcloud_project_link.example_project" "ABCDEFGHIJKLMNOPQRST,example_project"
 ```
