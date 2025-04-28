@@ -33,5 +33,3 @@ Read-Only:
 - `key` (String) The key of the webhook.
 - `name` (String) The name the webhook.
 - `url` (String) The url of the webhook.
-
-
