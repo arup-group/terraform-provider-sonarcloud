@@ -6,6 +6,8 @@ on:
     branches:
     - main
   merge_group:
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-24.04
