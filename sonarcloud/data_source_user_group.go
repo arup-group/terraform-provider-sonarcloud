@@ -3,58 +3,51 @@ package sonarcloud
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/user_groups"
 )
 
-type dataSourceUserGroupType struct{}
+type dataSourceUserGroup struct {
+	p *sonarcloudProvider
+}
 
-func (d dataSourceUserGroupType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ datasource.DataSource = &dataSourceUserGroup{}
+
+func (d *dataSourceUserGroup) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_user_group"
+}
+
+func (d *dataSourceUserGroup) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This data source retrieves a single user group.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:        types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed:    true,
 				Description: "The ID of the user group.",
 			},
-			"name": {
-				Type:        types.StringType,
+			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the user group.",
 			},
-			"description": {
-				Type:        types.StringType,
+			"description": schema.StringAttribute{
 				Computed:    true,
 				Description: "The description of the user group.",
 			},
-			"members_count": {
-				Type:        types.NumberType,
+			"members_count": schema.NumberAttribute{
 				Computed:    true,
 				Description: "The number of members in this user group.",
 			},
-			"default": {
-				Type:        types.BoolType,
+			"default": schema.BoolAttribute{
 				Computed:    true,
 				Description: "Whether new members are added to this user group per default or not.",
 			},
 		},
-	}, nil
+	}
 }
 
-func (d dataSourceUserGroupType) NewDataSource(_ context.Context, p tfsdk.Provider) (tfsdk.DataSource, diag.Diagnostics) {
-	return dataSourceUserGroup{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type dataSourceUserGroup struct {
-	p provider
-}
-
-func (d dataSourceUserGroup) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
+func (d *dataSourceUserGroup) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	// Retrieve values from config
 	var config Group
 	diags := req.Config.Get(ctx, &config)
@@ -65,7 +58,7 @@ func (d dataSourceUserGroup) Read(ctx context.Context, req tfsdk.ReadDataSourceR
 
 	// Fill in api action struct
 	request := user_groups.SearchRequest{
-		Q: config.Name.Value,
+		Q: config.Name.ValueString(),
 	}
 
 	response, err := d.p.client.UserGroups.SearchAll(request)
@@ -78,7 +71,7 @@ func (d dataSourceUserGroup) Read(ctx context.Context, req tfsdk.ReadDataSourceR
 	}
 
 	// Check if the resource exists the list of retrieved resources
-	if result, ok := findGroup(response, config.Name.Value); ok {
+	if result, ok := findGroup(response, config.Name.ValueString()); ok {
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	} else {
