@@ -3,69 +3,57 @@ package sonarcloud
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/projects"
 )
 
-type resourceProjectType struct{}
+type resourceProject struct {
+	p *sonarcloudProvider
+}
 
-func (r resourceProjectType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ resource.Resource = &resourceProject{}
+var _ resource.ResourceWithImportState = &resourceProject{}
+
+func (r *resourceProject) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_project"
+}
+
+func (r *resourceProject) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This resource manages a project.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:     types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"name": {
-				Type:        types.StringType,
+			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the project. **Warning:** forces project recreation when changed.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
-				},
-				Validators: []tfsdk.AttributeValidator{
-					stringLengthBetween(1, 255),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"key": {
-				Type:        types.StringType,
+			"key": schema.StringAttribute{
 				Required:    true,
 				Description: "The key of the project. **Warning**: must be globally unique.",
-				Validators: []tfsdk.AttributeValidator{
-					stringLengthBetween(1, 400),
-				},
 			},
-			"visibility": {
-				Type:     types.StringType,
+			"visibility": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
 				Description: "The visibility of the project. Use `private` to only share it with your organization." +
 					" Use `public` if the project should be visible to everyone. Defaults to the organization's default visibility." +
 					" **Note:** private projects are only available when you have a SonarCloud subscription.",
-				Validators: []tfsdk.AttributeValidator{
-					allowedOptions("public", "private"),
-				},
 			},
 		},
-	}, nil
+	}
 }
 
-func (r resourceProjectType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceProject{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type resourceProject struct {
-	p provider
-}
-
-func (r resourceProject) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *resourceProject) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
@@ -85,10 +73,10 @@ func (r resourceProject) Create(ctx context.Context, req tfsdk.CreateResourceReq
 
 	// Fill in api action struct
 	request := projects.CreateRequest{
-		Name:         plan.Name.Value,
+		Name:         plan.Name.ValueString(),
 		Organization: r.p.organization,
-		Project:      plan.Key.Value,
-		Visibility:   plan.Visibility.Value,
+		Project:      plan.Key.ValueString(),
+		Visibility:   plan.Visibility.ValueString(),
 	}
 
 	res, err := r.p.client.Projects.Create(request)
@@ -101,17 +89,17 @@ func (r resourceProject) Create(ctx context.Context, req tfsdk.CreateResourceReq
 	}
 
 	var result = Project{
-		ID:         types.String{Value: res.Project.Key},
-		Name:       types.String{Value: res.Project.Name},
-		Key:        types.String{Value: res.Project.Key},
-		Visibility: types.String{Value: plan.Visibility.Value},
+		ID:         types.StringValue(res.Project.Key),
+		Name:       types.StringValue(res.Project.Name),
+		Key:        types.StringValue(res.Project.Key),
+		Visibility: types.StringValue(plan.Visibility.ValueString()),
 	}
 	diags = resp.State.Set(ctx, result)
 
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r resourceProject) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *resourceProject) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Retrieve values from state
 	var state Project
 	diags := req.State.Get(ctx, &state)
@@ -122,7 +110,7 @@ func (r resourceProject) Read(ctx context.Context, req tfsdk.ReadResourceRequest
 
 	// Fill in api action struct
 	request := projects.SearchRequest{
-		Projects: state.Key.Value,
+		Projects: state.Key.ValueString(),
 	}
 
 	response, err := r.p.client.Projects.SearchAll(request)
@@ -135,7 +123,7 @@ func (r resourceProject) Read(ctx context.Context, req tfsdk.ReadResourceRequest
 	}
 
 	// Check if the resource exists the list of retrieved resources
-	if result, ok := findProject(response, state.Key.Value); ok {
+	if result, ok := findProject(response, state.Key.ValueString()); ok {
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	} else {
@@ -143,7 +131,7 @@ func (r resourceProject) Read(ctx context.Context, req tfsdk.ReadResourceRequest
 	}
 }
 
-func (r resourceProject) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *resourceProject) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Retrieve values from state
 	var state Project
 	diags := req.State.Get(ctx, &state)
@@ -167,8 +155,8 @@ func (r resourceProject) Update(ctx context.Context, req tfsdk.UpdateResourceReq
 
 	if _, ok := changed["key"]; ok {
 		request := projects.UpdateKeyRequest{
-			From: state.Key.Value,
-			To:   plan.Key.Value,
+			From: state.Key.ValueString(),
+			To:   plan.Key.ValueString(),
 		}
 
 		err := r.p.client.Projects.UpdateKey(request)
@@ -183,8 +171,8 @@ func (r resourceProject) Update(ctx context.Context, req tfsdk.UpdateResourceReq
 
 	if _, ok := changed["visibility"]; ok {
 		request := projects.UpdateVisibilityRequest{
-			Project:    plan.Key.Value,
-			Visibility: plan.Visibility.Value,
+			Project:    plan.Key.ValueString(),
+			Visibility: plan.Visibility.ValueString(),
 		}
 
 		err := r.p.client.Projects.UpdateVisibility(request)
@@ -211,13 +199,13 @@ func (r resourceProject) Update(ctx context.Context, req tfsdk.UpdateResourceReq
 	}
 
 	// Check if the resource exists the list of retrieved resources
-	if result, ok := findProject(response, plan.Key.Value); ok {
+	if result, ok := findProject(response, plan.Key.ValueString()); ok {
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	}
 }
 
-func (r resourceProject) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *resourceProject) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
 	var state Project
 	diags := req.State.Get(ctx, &state)
@@ -227,7 +215,7 @@ func (r resourceProject) Delete(ctx context.Context, req tfsdk.DeleteResourceReq
 	}
 
 	request := projects.DeleteRequest{
-		Project: state.Key.Value,
+		Project: state.Key.ValueString(),
 	}
 
 	err := r.p.client.Projects.Delete(request)
@@ -242,6 +230,6 @@ func (r resourceProject) Delete(ctx context.Context, req tfsdk.DeleteResourceReq
 	resp.State.RemoveResource(ctx)
 }
 
-func (r resourceProject) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, path.Root("key"), req, resp)
+func (r *resourceProject) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("key"), req, resp)
 }

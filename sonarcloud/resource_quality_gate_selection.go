@@ -5,51 +5,50 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/qualitygates"
 )
 
-type resourceQualityGateSelectionType struct{}
+type resourceQualityGateSelection struct {
+	p *sonarcloudProvider
+}
 
-func (r resourceQualityGateSelectionType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ resource.Resource = &resourceQualityGateSelection{}
+
+func (r *resourceQualityGateSelection) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_quality_gate_selection"
+}
+
+func (r *resourceQualityGateSelection) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This resource selects a quality gate for one or more projects",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:        types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Description: "The implicit ID of the resource",
 				Computed:    true,
 			},
-			"gate_id": {
-				Type:        types.StringType,
+			"gate_id": schema.StringAttribute{
 				Description: "The ID of the quality gate that is selected for the project(s).",
 				Required:    true,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"project_keys": {
-				Type:        types.SetType{ElemType: types.StringType},
+			"project_keys": schema.SetAttribute{
+				ElementType: types.StringType,
 				Description: "The Keys of the projects which have been selected on the referenced quality gate",
 				Required:    true,
 			},
 		},
-	}, nil
+	}
 }
 
-func (r resourceQualityGateSelectionType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceQualityGateSelection{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type resourceQualityGateSelection struct {
-	p provider
-}
-
-func (r resourceQualityGateSelection) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *resourceQualityGateSelection) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
@@ -70,7 +69,7 @@ func (r resourceQualityGateSelection) Create(ctx context.Context, req tfsdk.Crea
 	for _, s := range plan.ProjectKeys.Elems {
 		// Fill in api action struct for Quality Gates
 		request := qualitygates.SelectRequest{
-			GateId:       plan.GateId.Value,
+			GateId:       plan.GateId.ValueString()String(),
 			ProjectKey:   s.(types.String).Value,
 			Organization: r.p.organization,
 		}
@@ -86,7 +85,7 @@ func (r resourceQualityGateSelection) Create(ctx context.Context, req tfsdk.Crea
 
 	// Query for selection
 	searchRequest := qualitygates.SearchRequest{
-		GateId:       plan.GateId.Value,
+		GateId:       plan.GateId.ValueString()String(),
 		Organization: r.p.organization,
 	}
 
@@ -100,8 +99,8 @@ func (r resourceQualityGateSelection) Create(ctx context.Context, req tfsdk.Crea
 	}
 
 	if result, ok := findSelection(res, plan.ProjectKeys.Elems); ok {
-		result.GateId = types.String{Value: plan.GateId.Value}
-		result.ID = types.String{Value: plan.GateId.Value}
+		result.GateId = types.StringValue(plan.GateId.ValueString())
+		result.ID = types.StringValue(plan.GateId.ValueString())
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	} else {
@@ -113,7 +112,7 @@ func (r resourceQualityGateSelection) Create(ctx context.Context, req tfsdk.Crea
 	}
 }
 
-func (r resourceQualityGateSelection) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *resourceQualityGateSelection) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var state Selection
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -122,7 +121,7 @@ func (r resourceQualityGateSelection) Read(ctx context.Context, req tfsdk.ReadRe
 	}
 
 	searchRequest := qualitygates.SearchRequest{
-		GateId:       state.GateId.Value,
+		GateId:       state.GateId.ValueString()String(),
 		Organization: r.p.organization,
 	}
 	res, err := r.p.client.Qualitygates.Search(searchRequest)
@@ -134,8 +133,8 @@ func (r resourceQualityGateSelection) Read(ctx context.Context, req tfsdk.ReadRe
 		return
 	}
 	if result, ok := findSelection(res, state.ProjectKeys.Elems); ok {
-		result.GateId = types.String{Value: state.GateId.Value}
-		result.ID = types.String{Value: state.GateId.Value}
+		result.GateId = types.StringValue(state.GateId.ValueString())
+		result.ID = types.StringValue(state.GateId.ValueString())
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	} else {
@@ -143,7 +142,7 @@ func (r resourceQualityGateSelection) Read(ctx context.Context, req tfsdk.ReadRe
 	}
 }
 
-func (r resourceQualityGateSelection) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *resourceQualityGateSelection) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var state Selection
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -176,7 +175,7 @@ func (r resourceQualityGateSelection) Update(ctx context.Context, req tfsdk.Upda
 	}
 	for _, s := range sel {
 		selectRequest := qualitygates.SelectRequest{
-			GateId:       state.GateId.Value,
+			GateId:       state.GateId.ValueString()String(),
 			Organization: r.p.organization,
 			ProjectKey:   s.(types.String).Value,
 		}
@@ -191,7 +190,7 @@ func (r resourceQualityGateSelection) Update(ctx context.Context, req tfsdk.Upda
 	}
 
 	request := qualitygates.SearchRequest{
-		GateId:       plan.GateId.Value,
+		GateId:       plan.GateId.ValueString()String(),
 		Organization: r.p.organization,
 	}
 	res, err := r.p.client.Qualitygates.Search(request)
@@ -203,8 +202,8 @@ func (r resourceQualityGateSelection) Update(ctx context.Context, req tfsdk.Upda
 		return
 	}
 	if result, ok := findSelection(res, plan.ProjectKeys.Elems); ok {
-		result.GateId = types.String{Value: state.GateId.Value}
-		result.ID = types.String{Value: state.GateId.Value}
+		result.GateId = types.StringValue(state.GateId.ValueString())
+		result.ID = types.StringValue(state.GateId.ValueString())
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	} else {
@@ -216,7 +215,7 @@ func (r resourceQualityGateSelection) Update(ctx context.Context, req tfsdk.Upda
 	}
 }
 
-func (r resourceQualityGateSelection) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *resourceQualityGateSelection) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state Selection
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)

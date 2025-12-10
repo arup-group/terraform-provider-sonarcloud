@@ -5,109 +5,34 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/qualitygates"
 )
 
-type resourceQualityGateType struct{}
-
-func (r resourceQualityGateType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		Description: "This resource manages a Quality Gate",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:        types.StringType,
-				Description: "Implicit Terraform ID",
-				Computed:    true,
-			},
-			"gate_id": {
-				Type:        types.Float64Type,
-				Description: "Id computed by SonarCloud servers",
-				Computed:    true,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-			},
-			"name": {
-				Type:        types.StringType,
-				Description: "Name of the Quality Gate.",
-				Required:    true,
-			},
-			"is_built_in": {
-				Type:        types.BoolType,
-				Description: "Defines whether the quality gate is built in.",
-				Computed:    true,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-			},
-			"is_default": {
-				Type:        types.BoolType,
-				Description: "Defines whether the quality gate is the default gate for an organization. **WARNING**: Must be assigned to one quality gate per organization at all times.",
-				Optional:    true,
-				Computed:    true,
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.UseStateForUnknown(),
-				},
-			},
-			"conditions": {
-				Optional:    true,
-				Description: "The conditions of this quality gate. Please query https://sonarcloud.io/api/metrics/search for an up-to-date list of conditions.",
-				Attributes: tfsdk.SetNestedAttributes(map[string]tfsdk.Attribute{
-					"id": {
-						Type:        types.Float64Type,
-						Description: "Index/ID of the Condition.",
-						Computed:    true,
-						PlanModifiers: tfsdk.AttributePlanModifiers{
-							tfsdk.UseStateForUnknown(),
-						},
-					},
-					"metric": {
-						Type:        types.StringType,
-						Description: "The metric on which the condition is based.",
-						Required:    true,
-						PlanModifiers: tfsdk.AttributePlanModifiers{
-							tfsdk.UseStateForUnknown(),
-						},
-					},
-					"op": {
-						Type:        types.StringType,
-						Description: "Operation on which the metric is evaluated must be either: LT, GT.",
-						Optional:    true,
-						Validators: []tfsdk.AttributeValidator{
-							allowedOptions("LT", "GT"),
-						},
-						PlanModifiers: tfsdk.AttributePlanModifiers{
-							tfsdk.UseStateForUnknown(),
-						},
-					},
-					"error": {
-						Type:        types.StringType,
-						Description: "The value on which the condition errors.",
-						Required:    true,
-						PlanModifiers: tfsdk.AttributePlanModifiers{
-							tfsdk.UseStateForUnknown(),
-						},
-					},
-				}),
-			},
-		},
-	}, nil
-}
-
-func (r resourceQualityGateType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceQualityGate{
-		p: *(p.(*provider)),
-	}, nil
-}
-
 type resourceQualityGate struct {
-	p provider
+	p *sonarcloudProvider
 }
 
-func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+var _ resource.Resource = &resourceQualityGate{}
+
+func (r *resourceQualityGate) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_quality_gate"
+}
+
+func (r *resourceQualityGate) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		// TODO: Manually convert old schema
+	}
+}
+
+
+func (r *resourceQualityGate) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
@@ -127,7 +52,7 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 
 	// Fill in api action struct for Quality Gates
 	request := qualitygates.CreateRequest{
-		Name:         plan.Name.Value,
+		Name:         plan.Name.ValueString(),
 		Organization: r.p.organization,
 	}
 
@@ -141,14 +66,14 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 	}
 
 	var result = QualityGate{
-		ID:     types.String{Value: fmt.Sprintf("%d", int(res.Id))},
-		GateId: types.Float64{Value: res.Id},
-		Name:   types.String{Value: res.Name},
+		ID:     types.StringValue(fmt.Sprintf("%d", int(res.Id))),
+		GateId: types.Float64Value(res.Id),
+		Name:   types.StringValue(res.Name),
 	}
 
-	if plan.IsDefault.Value {
+	if plan.IsDefault.ValueBool() {
 		setDefualtRequest := qualitygates.SetAsDefaultRequest{
-			Id:           fmt.Sprintf("%d", int(result.GateId.Value)),
+			Id:           fmt.Sprintf("%d", int(result.GateId.ValueFloat64())),
 			Organization: r.p.organization,
 		}
 		err := r.p.client.Qualitygates.SetAsDefault(setDefualtRequest)
@@ -163,10 +88,10 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 	conditionRequests := qualitygates.CreateConditionRequest{}
 	for _, conditionPlan := range plan.Conditions {
 		conditionRequests = qualitygates.CreateConditionRequest{
-			Error:        conditionPlan.Error.Value,
-			GateId:       fmt.Sprintf("%d", int(result.GateId.Value)),
-			Metric:       conditionPlan.Metric.Value,
-			Op:           conditionPlan.Op.Value,
+			Error:        conditionPlan.Error.ValueString(),
+			GateId:       fmt.Sprintf("%d", int(result.GateId.ValueFloat64())),
+			Metric:       conditionPlan.Metric.ValueString(),
+			Op:           conditionPlan.Op.ValueString(),
 			Organization: r.p.organization,
 		}
 		res, err := r.p.client.Qualitygates.CreateCondition(conditionRequests)
@@ -179,10 +104,10 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 		}
 		// didn't implement warning
 		result.Conditions = append(result.Conditions, Condition{
-			Error:  types.String{Value: res.Error},
-			ID:     types.Float64{Value: res.Id},
-			Metric: types.String{Value: res.Metric},
-			Op:     types.String{Value: res.Op},
+			Error:  types.StringValue(res.Error),
+			ID:     types.Float64Value(res.Id),
+			Metric: types.StringValue(res.Metric),
+			Op:     types.StringValue(res.Op),
 		})
 	}
 
@@ -200,7 +125,7 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 		return
 	}
 
-	if createdQualityGate, ok := findQualityGate(listRes, result.Name.Value); ok {
+	if createdQualityGate, ok := findQualityGate(listRes, result.Name.ValueString()); ok {
 		result.IsBuiltIn = createdQualityGate.IsBuiltIn
 		result.IsDefault = createdQualityGate.IsDefault
 	}
@@ -209,7 +134,7 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r resourceQualityGate) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *resourceQualityGate) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	//Retrieve values from state
 	var state QualityGate
 	diags := req.State.Get(ctx, &state)
@@ -233,7 +158,7 @@ func (r resourceQualityGate) Read(ctx context.Context, req tfsdk.ReadResourceReq
 	}
 
 	// Check if the resource exists in the list of retrieved resources
-	if result, ok := findQualityGate(response, state.Name.Value); ok {
+	if result, ok := findQualityGate(response, state.Name.ValueString()); ok {
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	} else {
@@ -246,7 +171,7 @@ func (r resourceQualityGate) Read(ctx context.Context, req tfsdk.ReadResourceReq
 // https://github.com/adnsio/terraform-provider-k0s/blob/c8db5204e70e15484973d5680fe14ed184e719ef/internal/provider/cluster_resource.go#L366
 // https://github.com/devopsarr/terraform-provider-sonarr/blob/078ba51ca03a7782af5fbaaf48f6ebd15284116c/internal/provider/quality_profile_resource.go (DOUBLE NESTED!!! :O)
 // Thanks to those who wrote the above resources, they really helped me (Arnav Bhutani @Bhutania) out :)
-func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *resourceQualityGate) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	//retrieve values from state
 	var state QualityGate
 	diags := req.State.Get(ctx, &state)
@@ -265,8 +190,8 @@ func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourc
 
 	if diffName(state, plan) {
 		request := qualitygates.RenameRequest{
-			Id:           fmt.Sprintf("%d", int(state.GateId.Value)),
-			Name:         plan.Name.Value,
+			Id:           fmt.Sprintf("%d", int(state.GateId.ValueFloat64())),
+			Name:         plan.Name.ValueString(),
 			Organization: r.p.organization,
 		}
 
@@ -281,9 +206,9 @@ func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourc
 	}
 
 	if diffDefault(state, plan) {
-		if plan.IsDefault.Equal(types.Bool{Value: true}) {
+		if plan.IsDefault.Equal(types.BoolValue(true)) {
 			request := qualitygates.SetAsDefaultRequest{
-				Id:           fmt.Sprintf("%d", int(state.GateId.Value)),
+				Id:           fmt.Sprintf("%d", int(state.GateId.ValueFloat64())),
 				Organization: r.p.organization,
 			}
 			err := r.p.client.Qualitygates.SetAsDefault(request)
@@ -298,7 +223,7 @@ func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourc
 		// Hard coded default present in all repositories (Sonar way)
 		// This assumes that the Sonar way default quality gate will
 		// never change its ID and remain the default forever.
-		if plan.IsDefault.Equal(types.Bool{Value: false}) {
+		if plan.IsDefault.Equal(types.BoolValue(false)) {
 			request := qualitygates.SetAsDefaultRequest{
 				Id:           "9",
 				Organization: r.p.organization,
@@ -318,10 +243,10 @@ func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourc
 	if len(toUpdate) > 0 {
 		for _, c := range toUpdate {
 			request := qualitygates.UpdateConditionRequest{
-				Error:        c.Error.Value,
-				Id:           fmt.Sprintf("%d", int(c.ID.Value)),
-				Metric:       c.Metric.Value,
-				Op:           c.Op.Value,
+				Error:        c.Error.ValueString(),
+				Id:           fmt.Sprintf("%d", int(c.ID.ValueFloat64())),
+				Metric:       c.Metric.ValueString(),
+				Op:           c.Op.ValueString(),
 				Organization: r.p.organization,
 			}
 
@@ -338,10 +263,10 @@ func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourc
 	if len(toCreate) > 0 {
 		for _, c := range toCreate {
 			request := qualitygates.CreateConditionRequest{
-				GateId:       fmt.Sprintf("%d", int(state.GateId.Value)),
-				Error:        c.Error.Value,
-				Metric:       c.Metric.Value,
-				Op:           c.Op.Value,
+				GateId:       fmt.Sprintf("%d", int(state.GateId.ValueFloat64())),
+				Error:        c.Error.ValueString(),
+				Metric:       c.Metric.ValueString(),
+				Op:           c.Op.ValueString(),
 				Organization: r.p.organization,
 			}
 			_, err := r.p.client.Qualitygates.CreateCondition(request)
@@ -357,7 +282,7 @@ func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourc
 	if len(toRemove) > 0 {
 		for _, c := range toRemove {
 			request := qualitygates.DeleteConditionRequest{
-				Id:           fmt.Sprintf("%d", int(c.ID.Value)),
+				Id:           fmt.Sprintf("%d", int(c.ID.ValueFloat64())),
 				Organization: r.p.organization,
 			}
 			err := r.p.client.Qualitygates.DeleteCondition(request)
@@ -384,13 +309,13 @@ func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourc
 		return
 	}
 
-	if result, ok := findQualityGate(response, plan.Name.Value); ok {
+	if result, ok := findQualityGate(response, plan.Name.ValueString()); ok {
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	}
 }
 
-func (r resourceQualityGate) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *resourceQualityGate) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
 	var state QualityGate
 	diags := req.State.Get(ctx, &state)
@@ -402,7 +327,7 @@ func (r resourceQualityGate) Delete(ctx context.Context, req tfsdk.DeleteResourc
 	// Hard coded default present in all repositories (Sonar way)
 	// This assumes that the Sonar way default quality gate will
 	// never change its ID and remain the default forever.
-	if state.IsDefault.Equal(types.Bool{Value: true}) {
+	if state.IsDefault.Equal(types.BoolValue(true)) {
 		request := qualitygates.SetAsDefaultRequest{
 			Id:           "9",
 			Organization: r.p.organization,
@@ -417,7 +342,7 @@ func (r resourceQualityGate) Delete(ctx context.Context, req tfsdk.DeleteResourc
 	}
 
 	request := qualitygates.DestroyRequest{
-		Id:           fmt.Sprintf("%d", int(state.GateId.Value)),
+		Id:           fmt.Sprintf("%d", int(state.GateId.ValueFloat64())),
 		Organization: r.p.organization,
 	}
 
@@ -432,8 +357,8 @@ func (r resourceQualityGate) Delete(ctx context.Context, req tfsdk.DeleteResourc
 	resp.State.RemoveResource(ctx)
 }
 
-func (r resourceQualityGate) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, path.Root("name"), req, resp)
+func (r *resourceQualityGate) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
 }
 
 // Check if quality Gate name is the same
