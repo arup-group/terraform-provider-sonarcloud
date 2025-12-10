@@ -5,7 +5,7 @@ A Terraform provider for managing SonarCloud user groups and their permissions.
 ## Requirements
 
 -	[Terraform](https://www.terraform.io/downloads.html) >= 1.x
--	[Go](https://golang.org/doc/install) >= 1.17
+-	[Go](https://golang.org/doc/install) >= 1.24
 -   [GoReleaser](https://goreleaser.com/) >= 0.153.x
 
 ## Installing the Provider locally
