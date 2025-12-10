@@ -195,15 +195,17 @@ func diffAttrSets(haves, wants types.Set) (toAdd, toRemove []attr.Value) {
 	wantsElements := wants.Elements()
 	
 	for _, have := range havesElements {
-		haveStr, _ := have.(types.String)
-		if !stringAttributesContain(wantsElements, haveStr.ValueString()) {
-			toRemove = append(toRemove, types.StringValue(haveStr.ValueString()))
+		if haveStr, ok := have.(types.String); ok {
+			if !stringAttributesContain(wantsElements, haveStr.ValueString()) {
+				toRemove = append(toRemove, types.StringValue(haveStr.ValueString()))
+			}
 		}
 	}
 	for _, want := range wantsElements {
-		wantStr, _ := want.(types.String)
-		if !stringAttributesContain(havesElements, wantStr.ValueString()) {
-			toAdd = append(toAdd, types.StringValue(wantStr.ValueString()))
+		if wantStr, ok := want.(types.String); ok {
+			if !stringAttributesContain(havesElements, wantStr.ValueString()) {
+				toAdd = append(toAdd, types.StringValue(wantStr.ValueString()))
+			}
 		}
 	}
 
