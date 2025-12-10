@@ -3,64 +3,61 @@ package sonarcloud
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/project_links"
 	"strings"
 )
 
-type resourceProjectLinkType struct{}
+type resourceProjectLink struct {
+	p *sonarcloudProvider
+}
 
-func (r resourceProjectLinkType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ resource.Resource = &resourceProjectLink{}
+var _ resource.ResourceWithImportState = &resourceProjectLink{}
+
+func (r *resourceProjectLink) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_project_link"
+}
+
+func (r *resourceProjectLink) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This resource represents a project link.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:        types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed:    true,
 				Description: "ID of the link.",
 			},
-			"project_key": {
-				Type:        types.StringType,
+			"project_key": schema.StringAttribute{
 				Required:    true,
 				Description: "The key of the project to add the link to.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"name": {
-				Type:        types.StringType,
+			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "The name the link.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"url": {
-				Type:        types.StringType,
+			"url": schema.StringAttribute{
 				Required:    true,
 				Description: "The url of the link.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 		},
-	}, nil
+	}
 }
 
-func (r resourceProjectLinkType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceProjectLink{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type resourceProjectLink struct {
-	p provider
-}
-
-func (r resourceProjectLink) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *resourceProjectLink) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
@@ -80,9 +77,9 @@ func (r resourceProjectLink) Create(ctx context.Context, req tfsdk.CreateResourc
 
 	// Fill in api action struct
 	request := project_links.CreateRequest{
-		Name:       plan.Name.Value,
-		ProjectKey: plan.ProjectKey.Value,
-		Url:        plan.Url.Value,
+		Name:       plan.Name.ValueString(),
+		ProjectKey: plan.ProjectKey.ValueString(),
+		Url:        plan.Url.ValueString(),
 	}
 
 	res, err := r.p.client.ProjectLinks.Create(request)
@@ -96,17 +93,17 @@ func (r resourceProjectLink) Create(ctx context.Context, req tfsdk.CreateResourc
 
 	link := res.Link
 	var result = ProjectLink{
-		ID:         types.String{Value: link.Id},
+		ID:         types.StringValue(link.Id),
 		ProjectKey: plan.ProjectKey,
-		Name:       types.String{Value: link.Name},
-		Url:        types.String{Value: link.Url},
+		Name:       types.StringValue(link.Name),
+		Url:        types.StringValue(link.Url),
 	}
 	diags = resp.State.Set(ctx, result)
 
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r resourceProjectLink) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *resourceProjectLink) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Retrieve values from state
 	var state ProjectLink
 	diags := req.State.Get(ctx, &state)
@@ -117,7 +114,7 @@ func (r resourceProjectLink) Read(ctx context.Context, req tfsdk.ReadResourceReq
 
 	// Fill in api action struct
 	request := project_links.SearchRequest{
-		ProjectKey: state.ProjectKey.Value,
+		ProjectKey: state.ProjectKey.ValueString(),
 	}
 
 	response, err := r.p.client.ProjectLinks.Search(request)
@@ -130,7 +127,7 @@ func (r resourceProjectLink) Read(ctx context.Context, req tfsdk.ReadResourceReq
 	}
 
 	// Check if the resource exists the list of retrieved resources
-	if result, ok := findProjectLink(response, state.ID.Value, state.ProjectKey.Value); ok {
+	if result, ok := findProjectLink(response, state.ID.ValueString(), state.ProjectKey.ValueString()); ok {
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	} else {
@@ -138,11 +135,11 @@ func (r resourceProjectLink) Read(ctx context.Context, req tfsdk.ReadResourceReq
 	}
 }
 
-func (r resourceProjectLink) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *resourceProjectLink) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// NOOP, we always need to recreate
 }
 
-func (r resourceProjectLink) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *resourceProjectLink) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state ProjectLink
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -151,7 +148,7 @@ func (r resourceProjectLink) Delete(ctx context.Context, req tfsdk.DeleteResourc
 	}
 
 	request := project_links.DeleteRequest{
-		Id: state.ID.Value,
+		Id: state.ID.ValueString(),
 	}
 	err := r.p.client.ProjectLinks.Delete(request)
 	if err != nil {
@@ -165,7 +162,7 @@ func (r resourceProjectLink) Delete(ctx context.Context, req tfsdk.DeleteResourc
 	resp.State.RemoveResource(ctx)
 }
 
-func (r resourceProjectLink) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
+func (r *resourceProjectLink) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	idParts := strings.Split(req.ID, ",")
 	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
 		resp.Diagnostics.AddError(
@@ -186,10 +183,10 @@ func findProjectLink(response *project_links.SearchResponse, id, project_key str
 	for _, link := range response.Links {
 		if link.Id == id {
 			result = ProjectLink{
-				ID:         types.String{Value: link.Id},
-				ProjectKey: types.String{Value: project_key},
-				Name:       types.String{Value: link.Name},
-				Url:        types.String{Value: link.Url},
+				ID:         types.StringValue(link.Id),
+				ProjectKey: types.StringValue(project_key),
+				Name:       types.StringValue(link.Name),
+				Url:        types.StringValue(link.Url),
 			}
 			ok = true
 			break
