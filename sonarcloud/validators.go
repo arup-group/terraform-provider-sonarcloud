@@ -3,8 +3,7 @@ package sonarcloud
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
-	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
 // Copied from https://www.terraform.io/plugin/framework/validation
@@ -26,23 +25,17 @@ func (v stringLengthBetweenValidator) MarkdownDescription(ctx context.Context) s
 }
 
 // Validate checks if the length of the string attribute is between Min and Max
-func (v stringLengthBetweenValidator) Validate(ctx context.Context, req tfsdk.ValidateAttributeRequest, resp *tfsdk.ValidateAttributeResponse) {
-	var str types.String
-	diags := tfsdk.ValueAs(ctx, req.AttributeConfig, &str)
-	resp.Diagnostics.Append(diags...)
-	if diags.HasError() {
+func (v stringLengthBetweenValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	// In v1+ API, req.ConfigValue is already the proper type
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
 	}
 
-	if str.Unknown || str.Null {
-		return
-	}
-
-	strLen := len(str.Value)
+	strLen := len(req.ConfigValue.ValueString())
 
 	if strLen < v.Min || strLen > v.Max {
 		resp.Diagnostics.AddAttributeError(
-			req.AttributePath,
+			req.Path,
 			"Invalid String Length",
 			fmt.Sprintf("String length must be between %d and %d, got: %d.", v.Min, v.Max, strLen),
 		)
@@ -67,21 +60,16 @@ func (v allowedOptionsValidator) MarkdownDescription(_ context.Context) string {
 	return fmt.Sprintf("option must be one of `%v`", v.Options)
 }
 
-func (v allowedOptionsValidator) Validate(ctx context.Context, req tfsdk.ValidateAttributeRequest, resp *tfsdk.ValidateAttributeResponse) {
-	var str types.String
-	diags := tfsdk.ValueAs(ctx, req.AttributeConfig, &str)
-	resp.Diagnostics.Append(diags...)
-	if diags.HasError() {
-		return
-	}
-
-	if str.Unknown || str.Null {
+func (v allowedOptionsValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	// In v1+ API, req.ConfigValue is already the proper type
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
 	}
 
 	valid := false
+	strValue := req.ConfigValue.ValueString()
 	for _, option := range v.Options {
-		if option == str.Value {
+		if option == strValue {
 			valid = true
 			break
 		}
@@ -89,9 +77,9 @@ func (v allowedOptionsValidator) Validate(ctx context.Context, req tfsdk.Validat
 
 	if !valid {
 		resp.Diagnostics.AddAttributeError(
-			req.AttributePath,
+			req.Path,
 			"Invalid String Value",
-			fmt.Sprintf("String must be one of %v, got: %s.", v.Options, str.Value),
+			fmt.Sprintf("String must be one of %v, got: %s.", v.Options, strValue),
 		)
 
 		return
@@ -114,20 +102,14 @@ func (v allowedSetOptionsValidator) MarkdownDescription(_ context.Context) strin
 	return fmt.Sprintf("value in set must be one of `%v`", v.Options)
 }
 
-func (v allowedSetOptionsValidator) Validate(ctx context.Context, req tfsdk.ValidateAttributeRequest, resp *tfsdk.ValidateAttributeResponse) {
-	var set types.Set
-	diags := tfsdk.ValueAs(ctx, req.AttributeConfig, &set)
-	resp.Diagnostics.Append(diags...)
-	if diags.HasError() {
-		return
-	}
-
-	if set.Unknown || set.Null {
+func (v allowedSetOptionsValidator) ValidateSet(ctx context.Context, req validator.SetRequest, resp *validator.SetResponse) {
+	// In v1+ API, req.ConfigValue is already the proper type
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
 	}
 
 	var values []string
-	diags = set.ElementsAs(ctx, &values, true)
+	diags := req.ConfigValue.ElementsAs(ctx, &values, true)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
 		return
@@ -141,7 +123,7 @@ func (v allowedSetOptionsValidator) Validate(ctx context.Context, req tfsdk.Vali
 	for _, val := range values {
 		if _, ok := options[val]; !ok {
 			resp.Diagnostics.AddAttributeError(
-				req.AttributePath,
+				req.Path,
 				"Invalid String Element in Set",
 				fmt.Sprintf("Element must be one of %v, got: %s.", v.Options, val),
 			)

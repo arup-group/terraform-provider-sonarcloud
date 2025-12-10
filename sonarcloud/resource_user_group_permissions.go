@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/permissions"
@@ -16,73 +19,55 @@ import (
 	"time"
 )
 
-type resourceUserGroupPermissionsType struct{}
+type resourceUserGroupPermissions struct {
+	p *sonarcloudProvider
+}
 
-func (r resourceUserGroupPermissionsType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		Description: "This resource manages the permissions of a user group for the whole organization or a specific project.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:        types.StringType,
-				Description: "The implicit ID of the resource",
+var _ resource.Resource = &resourceUserGroupPermissions{}
+
+func (r *resourceUserGroupPermissions) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_user_group_permissions"
+}
+
+func (r *resourceUserGroupPermissions) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "This resource manages permissions for a user group.",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed:    true,
-			},
-			"project_key": {
-				Type:        types.StringType,
-				Optional:    true,
-				Description: "The key of the project to restrict the permissions to.",
-			},
-			"name": {
-				Type:        types.StringType,
-				Required:    true,
-				Description: "The name of the user group to set the permissions for.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				Description: "The ID of the user group permissions resource (computed as project_key-name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"description": {
-				Type:        types.StringType,
+			"project_key": schema.StringAttribute{
+				Required:    true,
+				Description: "The project key where the permissions apply.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"name": schema.StringAttribute{
+				Required:    true,
+				Description: "The name of the user group.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"description": schema.StringAttribute{
 				Computed:    true,
 				Description: "The description of the user group.",
 			},
-			"permissions": {
-				Type:     types.SetType{ElemType: types.StringType},
-				Required: true,
-				Description: "List of permissions to grant." +
-					" Available global permissions: [`admin`, `profileadmin`, `gateadmin`, `scan`, `provisioning`]." +
-					" Available project permissions: ['admin`, `scan`, `codeviewer`, `issueadmin`, `securityhotspotadmin`, `user`].",
-				Validators: []tfsdk.AttributeValidator{
-					allowedSetOptions(
-						// Global permissions
-						"admin",
-						"profileadmin",
-						"gateadmin",
-						"scan",
-						"provisioning",
-						// Project permissions
-						// Note: admin and scan are project permissions as well
-						"codeviewer",
-						"issueadmin",
-						"securityhotspotadmin",
-						"user",
-					),
-				},
+			"permissions": schema.SetAttribute{
+				ElementType: types.StringType,
+				Required:    true,
+				Description: "The set of permissions for the user group on the project.",
 			},
 		},
-	}, nil
+	}
 }
 
-func (r resourceUserGroupPermissionsType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceUserGroupPermissions{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type resourceUserGroupPermissions struct {
-	p provider
-}
-
-func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *resourceUserGroupPermissions) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
@@ -100,19 +85,27 @@ func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.Crea
 		return
 	}
 
+	// Extract permissions from Set
+	var permissionsList []string
+	diags = plan.Permissions.ElementsAs(ctx, &permissionsList, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Add permissions one by one
 	wg := sync.WaitGroup{}
-	for _, elem := range plan.Permissions.Elems {
-		permission := elem.(types.String).Value
+	for _, permission := range permissionsList {
+		permissionValue := permission // capture loop variable
 
 		go func() {
 			wg.Add(1)
 			defer wg.Done()
 
 			request := permissions.AddGroupRequest{
-				GroupName:    plan.Name.Value,
-				Permission:   permission,
-				ProjectKey:   plan.ProjectKey.Value,
+				GroupName:    plan.Name.ValueString(),
+				Permission:   permissionValue,
+				ProjectKey:   plan.ProjectKey.ValueString(),
 				Organization: r.p.organization,
 			}
 			if err := r.p.client.Permissions.AddGroup(request); err != nil {
@@ -141,18 +134,11 @@ func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.Crea
 		)
 	}
 
-	plannedPermissions := make([]string, len(plan.Permissions.Elems))
-	diags = plan.Permissions.ElementsAs(ctx, &plannedPermissions, true)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	backoffConfig := defaultBackoffConfig()
 
 	group, err := backoff.RetryWithData(
 		func() (*UserGroupPermissions, error) {
-			group, err := findUserGroupWithPermissionsSet(r.p.client, plan.Name.Value, plan.ProjectKey.Value, plan.Permissions)
+			group, err := findUserGroupWithPermissionsSet(r.p.client, plan.Name.ValueString(), plan.ProjectKey.ValueString(), plan.Permissions)
 			return group, err
 		}, backoffConfig)
 
@@ -167,7 +153,7 @@ func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.Crea
 	}
 }
 
-func (r resourceUserGroupPermissions) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *resourceUserGroupPermissions) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var state UserGroupPermissions
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -176,7 +162,7 @@ func (r resourceUserGroupPermissions) Read(ctx context.Context, req tfsdk.ReadRe
 	}
 
 	// Query for permissions
-	searchRequest := UserGroupPermissionsSearchRequest{ProjectKey: state.ProjectKey.Value}
+	searchRequest := UserGroupPermissionsSearchRequest{ProjectKey: state.ProjectKey.ValueString()}
 	groups, err := sonarcloud.GetAll[UserGroupPermissionsSearchRequest, UserGroupPermissionsSearchResponseGroup](r.p.client, "/permissions/groups", searchRequest, "groups")
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -186,19 +172,19 @@ func (r resourceUserGroupPermissions) Read(ctx context.Context, req tfsdk.ReadRe
 		return
 	}
 
-	if group, ok := findUserGroup(groups, state.Name.Value); ok {
+	if group, ok := findUserGroup(groups, state.Name.ValueString()); ok {
 		permissionsElems := make([]attr.Value, len(group.Permissions))
 
 		for i, permission := range group.Permissions {
-			permissionsElems[i] = types.String{Value: permission}
+			permissionsElems[i] = types.StringValue(permission)
 		}
 
 		result := UserGroupPermissions{
-			ID:          types.String{Value: group.Id},
+			ID:          types.StringValue(group.Id),
 			ProjectKey:  state.ProjectKey,
-			Name:        types.String{Value: group.Name},
-			Description: types.String{Value: group.Description},
-			Permissions: types.Set{Elems: permissionsElems, ElemType: types.StringType},
+			Name:        types.StringValue(group.Name),
+			Description: types.StringValue(group.Description),
+			Permissions: types.SetValueMust(types.StringType, permissionsElems),
 		}
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
@@ -207,7 +193,7 @@ func (r resourceUserGroupPermissions) Read(ctx context.Context, req tfsdk.ReadRe
 	}
 }
 
-func (r resourceUserGroupPermissions) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *resourceUserGroupPermissions) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var state UserGroupPermissions
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -225,10 +211,11 @@ func (r resourceUserGroupPermissions) Update(ctx context.Context, req tfsdk.Upda
 	toAdd, toRemove := diffAttrSets(state.Permissions, plan.Permissions)
 
 	for _, remove := range toRemove {
+		removeStr := remove.(types.String)
 		removeRequest := permissions.RemoveGroupRequest{
-			GroupName:    state.Name.Value,
-			Permission:   remove.(types.String).Value,
-			ProjectKey:   state.ProjectKey.Value,
+			GroupName:    state.Name.ValueString(),
+			Permission:   removeStr.ValueString(),
+			ProjectKey:   state.ProjectKey.ValueString(),
 			Organization: r.p.organization,
 		}
 		err := r.p.client.Permissions.RemoveGroup(removeRequest)
@@ -241,10 +228,11 @@ func (r resourceUserGroupPermissions) Update(ctx context.Context, req tfsdk.Upda
 		}
 	}
 	for _, add := range toAdd {
+		addStr := add.(types.String)
 		addRequest := permissions.AddGroupRequest{
-			GroupName:    plan.Name.Value,
-			Permission:   add.(types.String).Value,
-			ProjectKey:   plan.ProjectKey.Value,
+			GroupName:    plan.Name.ValueString(),
+			Permission:   addStr.ValueString(),
+			ProjectKey:   plan.ProjectKey.ValueString(),
 			Organization: r.p.organization,
 		}
 		if err := r.p.client.Permissions.AddGroup(addRequest); err != nil {
@@ -256,18 +244,11 @@ func (r resourceUserGroupPermissions) Update(ctx context.Context, req tfsdk.Upda
 		}
 	}
 
-	plannedPermissions := make([]string, len(plan.Permissions.Elems))
-	diags = plan.Permissions.ElementsAs(ctx, &plannedPermissions, true)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	backoffConfig := defaultBackoffConfig()
 
 	group, err := backoff.RetryWithData(
 		func() (*UserGroupPermissions, error) {
-			group, err := findUserGroupWithPermissionsSet(r.p.client, plan.Name.Value, plan.ProjectKey.Value, plan.Permissions)
+			group, err := findUserGroupWithPermissionsSet(r.p.client, plan.Name.ValueString(), plan.ProjectKey.ValueString(), plan.Permissions)
 			return group, err
 		}, backoffConfig)
 
@@ -282,7 +263,7 @@ func (r resourceUserGroupPermissions) Update(ctx context.Context, req tfsdk.Upda
 	}
 }
 
-func (r resourceUserGroupPermissions) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *resourceUserGroupPermissions) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state UserGroupPermissions
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -290,11 +271,19 @@ func (r resourceUserGroupPermissions) Delete(ctx context.Context, req tfsdk.Dele
 		return
 	}
 
-	for _, remove := range state.Permissions.Elems {
+	// Extract permissions from Set
+	var permissionsList []string
+	diags = state.Permissions.ElementsAs(ctx, &permissionsList, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for _, permission := range permissionsList {
 		removeRequest := permissions.RemoveGroupRequest{
-			GroupName:    state.Name.Value,
-			Permission:   remove.(types.String).Value,
-			ProjectKey:   state.ProjectKey.Value,
+			GroupName:    state.Name.ValueString(),
+			Permission:   permission,
+			ProjectKey:   state.ProjectKey.ValueString(),
 			Organization: r.p.organization,
 		}
 		err := r.p.client.Permissions.RemoveGroup(removeRequest)
@@ -310,7 +299,7 @@ func (r resourceUserGroupPermissions) Delete(ctx context.Context, req tfsdk.Dele
 	resp.State.RemoveResource(ctx)
 }
 
-func (r resourceUserGroupPermissions) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
+func (r *resourceUserGroupPermissions) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	idParts := strings.Split(req.ID, ",")
 	if len(idParts) < 1 || len(idParts) > 2 || idParts[0] == "" {
 		resp.Diagnostics.AddError(
@@ -352,10 +341,10 @@ func findUserGroupWithPermissionsSet(client *sonarcloud.Client, name, projectKey
 
 	permissionsElems := make([]attr.Value, len(group.Permissions))
 	for i, permission := range group.Permissions {
-		permissionsElems[i] = types.String{Value: permission}
+		permissionsElems[i] = types.StringValue(permission)
 	}
 
-	foundPermissions := types.Set{Elems: permissionsElems, ElemType: types.StringType}
+	foundPermissions := types.SetValueMust(types.StringType, permissionsElems)
 
 	if !foundPermissions.Equal(expectedPermissions) {
 		return nil, fmt.Errorf("the returned permissions do not match the expected permissions (name='%s',projectKey='%s, expected='%v', got='%v')",
@@ -366,10 +355,10 @@ func findUserGroupWithPermissionsSet(client *sonarcloud.Client, name, projectKey
 	}
 
 	return &UserGroupPermissions{
-		ID:          types.String{Value: projectKey + "-" + name},
-		ProjectKey:  types.String{Value: projectKey},
-		Name:        types.String{Value: group.Name},
-		Description: types.String{Value: group.Description},
+		ID:          types.StringValue(projectKey + "-" + name),
+		ProjectKey:  types.StringValue(projectKey),
+		Name:        types.StringValue(group.Name),
+		Description: types.StringValue(group.Description),
 		Permissions: foundPermissions,
 	}, nil
 }

@@ -4,68 +4,62 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/webhooks"
 )
 
-type dataSourceWebhooksType struct{}
+type dataSourceWebhooks struct {
+	p *sonarcloudProvider
+}
 
-func (d dataSourceWebhooksType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ datasource.DataSource = &dataSourceWebhooks{}
+
+func (d *dataSourceWebhooks) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_webhooks"
+}
+
+func (d *dataSourceWebhooks) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This datasource retrieves the list of webhooks for a project or the organization.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:     types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"project": {
-				Type:        types.StringType,
+			"project": schema.StringAttribute{
 				Optional:    true,
 				Description: "The key of the project. If empty, the webhooks of the organization are returned.",
 			},
-			"webhooks": {
+			"webhooks": schema.ListNestedAttribute{
 				Computed:    true,
 				Description: "The webhooks of this project or organization.",
-				Attributes: tfsdk.ListNestedAttributes(map[string]tfsdk.Attribute{
-					"key": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The key of the webhook.",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"key": schema.StringAttribute{
+							Computed:    true,
+							Description: "The key of the webhook.",
+						},
+						"name": schema.StringAttribute{
+							Computed:    true,
+							Description: "The name the webhook.",
+						},
+						"url": schema.StringAttribute{
+							Computed:    true,
+							Description: "The url of the webhook.",
+						},
+						"has_secret": schema.BoolAttribute{
+							Computed:    true,
+							Description: "Whether the webhook has a secret.",
+						},
 					},
-					"name": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The name the webhook.",
-					},
-					"url": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The url of the webhook.",
-					},
-					"has_secret": {
-						Type:        types.BoolType,
-						Computed:    true,
-						Description: "Whether the webhook has a secret.",
-					},
-				}),
+				},
 			},
 		},
-	}, nil
+	}
 }
 
-func (d dataSourceWebhooksType) NewDataSource(_ context.Context, p tfsdk.Provider) (tfsdk.DataSource, diag.Diagnostics) {
-	return dataSourceWebhooks{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type dataSourceWebhooks struct {
-	p provider
-}
-
-func (d dataSourceWebhooks) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
+func (d *dataSourceWebhooks) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var config DataWebhooks
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
@@ -76,7 +70,7 @@ func (d dataSourceWebhooks) Read(ctx context.Context, req tfsdk.ReadDataSourceRe
 	// Fill in api action struct
 	request := webhooks.ListRequest{
 		Organization: d.p.organization,
-		Project:      config.Project.Value,
+		Project:      config.Project.ValueString(),
 	}
 
 	response, err := d.p.client.Webhooks.List(request)
@@ -91,15 +85,15 @@ func (d dataSourceWebhooks) Read(ctx context.Context, req tfsdk.ReadDataSourceRe
 	hooks := make([]DataWebhook, len(response.Webhooks))
 	for i, webhook := range response.Webhooks {
 		hooks[i] = DataWebhook{
-			Key:       types.String{Value: webhook.Key},
-			Name:      types.String{Value: webhook.Name},
-			HasSecret: types.Bool{Value: webhook.HasSecret},
-			Url:       types.String{Value: webhook.Url},
+			Key:       types.StringValue(webhook.Key),
+			Name:      types.StringValue(webhook.Name),
+			HasSecret: types.BoolValue(webhook.HasSecret),
+			Url:       types.StringValue(webhook.Url),
 		}
 	}
 
 	result := DataWebhooks{
-		ID:       types.String{Value: fmt.Sprintf("%s-%s", d.p.organization, config.Project.Value)},
+		ID:       types.StringValue(fmt.Sprintf("%s-%s", d.p.organization, config.Project.ValueString())),
 		Project:  config.Project,
 		Webhooks: hooks,
 	}

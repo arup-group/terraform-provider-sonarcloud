@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/permissions"
@@ -16,78 +19,59 @@ import (
 	"time"
 )
 
-type resourceUserPermissionsType struct{}
+type resourceUserPermissions struct {
+	p *sonarcloudProvider
+}
 
-func (r resourceUserPermissionsType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		Description: "This resource manages the permissions of a user for the whole organization or a specific project.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:        types.StringType,
-				Description: "The implicit ID of the resource.",
+var _ resource.Resource = &resourceUserPermissions{}
+
+func (r *resourceUserPermissions) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_user_permissions"
+}
+
+func (r *resourceUserPermissions) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "This resource manages permissions for a user.",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed:    true,
-			},
-			"project_key": {
-				Type:        types.StringType,
-				Optional:    true,
-				Description: "The key of the project to restrict the permissions to.",
-			},
-			"login": {
-				Type:        types.StringType,
-				Required:    true,
-				Description: "The login of the user to set the permissions for.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				Description: "The ID of the user permissions resource (computed as project_key-login).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"name": {
-				Type:        types.StringType,
+			"project_key": schema.StringAttribute{
+				Required:    true,
+				Description: "The project key where the permissions apply.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"login": schema.StringAttribute{
+				Required:    true,
+				Description: "The login of the user.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"name": schema.StringAttribute{
 				Computed:    true,
 				Description: "The name of the user.",
 			},
-			"permissions": {
-				Type:     types.SetType{ElemType: types.StringType},
-				Required: true,
-				Description: "List of permissions to grant." +
-					" Available global permissions: [`admin`, `profileadmin`, `gateadmin`, `scan`, `provisioning`]." +
-					" Available project permissions: ['admin`, `scan`, `codeviewer`, `issueadmin`, `securityhotspotadmin`, `user`].",
-				Validators: []tfsdk.AttributeValidator{
-					allowedSetOptions(
-						// Global permissions
-						"admin",
-						"profileadmin",
-						"gateadmin",
-						"scan",
-						"provisioning",
-						// Project permissions
-						// Note: admin and scan are project permissions as well
-						"codeviewer",
-						"issueadmin",
-						"securityhotspotadmin",
-						"user",
-					),
-				},
+			"permissions": schema.SetAttribute{
+				ElementType: types.StringType,
+				Required:    true,
+				Description: "The set of permissions for the user on the project.",
 			},
-			"avatar": {
-				Type:        types.StringType,
+			"avatar": schema.StringAttribute{
 				Computed:    true,
-				Description: "The avatar ID of the user.",
+				Description: "The avatar URL of the user.",
 			},
 		},
-	}, nil
+	}
 }
 
-func (r resourceUserPermissionsType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceUserPermissions{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type resourceUserPermissions struct {
-	p provider
-}
-
-func (r resourceUserPermissions) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *resourceUserPermissions) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
@@ -105,19 +89,27 @@ func (r resourceUserPermissions) Create(ctx context.Context, req tfsdk.CreateRes
 		return
 	}
 
+	// Extract permissions from Set
+	var permissionsList []string
+	diags = plan.Permissions.ElementsAs(ctx, &permissionsList, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Add permissions one by one
 	wg := sync.WaitGroup{}
-	for _, elem := range plan.Permissions.Elems {
-		permission := elem.(types.String).Value
+	for _, permission := range permissionsList {
+		permissionValue := permission // capture loop variable
 
 		go func() {
 			wg.Add(1)
 			defer wg.Done()
 
 			request := permissions.AddUserRequest{
-				Login:        plan.Login.Value,
-				Permission:   permission,
-				ProjectKey:   plan.ProjectKey.Value,
+				Login:        plan.Login.ValueString(),
+				Permission:   permissionValue,
+				ProjectKey:   plan.ProjectKey.ValueString(),
 				Organization: r.p.organization,
 			}
 			if err := r.p.client.Permissions.AddUser(request); err != nil {
@@ -146,18 +138,11 @@ func (r resourceUserPermissions) Create(ctx context.Context, req tfsdk.CreateRes
 		)
 	}
 
-	plannedPermissions := make([]string, len(plan.Permissions.Elems))
-	diags = plan.Permissions.ElementsAs(ctx, &plannedPermissions, true)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	backoffConfig := defaultBackoffConfig()
 
 	user, err := backoff.RetryWithData(
 		func() (*UserPermissions, error) {
-			user, err := findUserWithPermissionsSet(r.p.client, plan.Login.Value, plan.ProjectKey.Value, plan.Permissions)
+			user, err := findUserWithPermissionsSet(r.p.client, plan.Login.ValueString(), plan.ProjectKey.ValueString(), plan.Permissions)
 			return user, err
 		}, backoffConfig)
 
@@ -172,7 +157,7 @@ func (r resourceUserPermissions) Create(ctx context.Context, req tfsdk.CreateRes
 	}
 }
 
-func (r resourceUserPermissions) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *resourceUserPermissions) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var state UserPermissions
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -181,7 +166,7 @@ func (r resourceUserPermissions) Read(ctx context.Context, req tfsdk.ReadResourc
 	}
 
 	// Query for permissions
-	searchRequest := UserPermissionsSearchRequest{ProjectKey: state.ProjectKey.Value}
+	searchRequest := UserPermissionsSearchRequest{ProjectKey: state.ProjectKey.ValueString()}
 	users, err := sonarcloud.GetAll[UserPermissionsSearchRequest, UserPermissionsSearchResponseUser](r.p.client, "/permissions/users", searchRequest, "users")
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -191,20 +176,20 @@ func (r resourceUserPermissions) Read(ctx context.Context, req tfsdk.ReadResourc
 		return
 	}
 
-	if user, ok := findUser(users, state.Login.Value); ok {
+	if user, ok := findUser(users, state.Login.ValueString()); ok {
 		permissionsElems := make([]attr.Value, len(user.Permissions))
 
 		for i, permission := range user.Permissions {
-			permissionsElems[i] = types.String{Value: permission}
+			permissionsElems[i] = types.StringValue(permission)
 		}
 
 		result := UserPermissions{
-			ID:          types.String{Value: state.ProjectKey.Value + "-" + state.Login.Value},
+			ID:          types.StringValue(state.ProjectKey.ValueString() + "-" + state.Login.ValueString()),
 			ProjectKey:  state.ProjectKey,
-			Login:       types.String{Value: user.Login},
-			Name:        types.String{Value: user.Name},
-			Permissions: types.Set{Elems: permissionsElems, ElemType: types.StringType},
-			Avatar:      types.String{Value: user.Avatar},
+			Login:       types.StringValue(user.Login),
+			Name:        types.StringValue(user.Name),
+			Permissions: types.SetValueMust(types.StringType, permissionsElems),
+			Avatar:      types.StringValue(user.Avatar),
 		}
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
@@ -213,7 +198,7 @@ func (r resourceUserPermissions) Read(ctx context.Context, req tfsdk.ReadResourc
 	}
 }
 
-func (r resourceUserPermissions) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *resourceUserPermissions) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var state UserPermissions
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -231,11 +216,12 @@ func (r resourceUserPermissions) Update(ctx context.Context, req tfsdk.UpdateRes
 	toAdd, toRemove := diffAttrSets(state.Permissions, plan.Permissions)
 
 	for _, remove := range toRemove {
+		removeStr := remove.(types.String)
 		removeRequest := permissions.RemoveUserRequest{
-			Login:        state.Login.Value,
+			Login:        state.Login.ValueString(),
 			Organization: r.p.organization,
-			Permission:   remove.(types.String).Value,
-			ProjectKey:   state.ProjectKey.Value,
+			Permission:   removeStr.ValueString(),
+			ProjectKey:   state.ProjectKey.ValueString(),
 		}
 		err := r.p.client.Permissions.RemoveUser(removeRequest)
 		if err != nil {
@@ -247,10 +233,11 @@ func (r resourceUserPermissions) Update(ctx context.Context, req tfsdk.UpdateRes
 		}
 	}
 	for _, add := range toAdd {
+		addStr := add.(types.String)
 		addRequest := permissions.AddUserRequest{
-			Login:        plan.Login.Value,
-			Permission:   add.(types.String).Value,
-			ProjectKey:   plan.ProjectKey.Value,
+			Login:        plan.Login.ValueString(),
+			Permission:   addStr.ValueString(),
+			ProjectKey:   plan.ProjectKey.ValueString(),
 			Organization: r.p.organization,
 		}
 		if err := r.p.client.Permissions.AddUser(addRequest); err != nil {
@@ -262,18 +249,11 @@ func (r resourceUserPermissions) Update(ctx context.Context, req tfsdk.UpdateRes
 		}
 	}
 
-	plannedPermissions := make([]string, len(plan.Permissions.Elems))
-	diags = plan.Permissions.ElementsAs(ctx, &plannedPermissions, true)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	backoffConfig := defaultBackoffConfig()
 
 	user, err := backoff.RetryWithData(
 		func() (*UserPermissions, error) {
-			return findUserWithPermissionsSet(r.p.client, plan.Login.Value, plan.ProjectKey.Value, plan.Permissions)
+			return findUserWithPermissionsSet(r.p.client, plan.Login.ValueString(), plan.ProjectKey.ValueString(), plan.Permissions)
 		}, backoffConfig)
 
 	if err != nil {
@@ -287,7 +267,7 @@ func (r resourceUserPermissions) Update(ctx context.Context, req tfsdk.UpdateRes
 	}
 }
 
-func (r resourceUserPermissions) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *resourceUserPermissions) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var state UserPermissions
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -295,12 +275,20 @@ func (r resourceUserPermissions) Delete(ctx context.Context, req tfsdk.DeleteRes
 		return
 	}
 
-	for _, remove := range state.Permissions.Elems {
+	// Extract permissions from Set
+	var permissionsList []string
+	diags = state.Permissions.ElementsAs(ctx, &permissionsList, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for _, permission := range permissionsList {
 		removeRequest := permissions.RemoveUserRequest{
-			Login:        state.Login.Value,
+			Login:        state.Login.ValueString(),
 			Organization: r.p.organization,
-			Permission:   remove.(types.String).Value,
-			ProjectKey:   state.ProjectKey.Value,
+			Permission:   permission,
+			ProjectKey:   state.ProjectKey.ValueString(),
 		}
 		err := r.p.client.Permissions.RemoveUser(removeRequest)
 		if err != nil {
@@ -315,7 +303,7 @@ func (r resourceUserPermissions) Delete(ctx context.Context, req tfsdk.DeleteRes
 	resp.State.RemoveResource(ctx)
 }
 
-func (r resourceUserPermissions) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
+func (r *resourceUserPermissions) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	idParts := strings.Split(req.ID, ",")
 	if len(idParts) < 1 || len(idParts) > 2 || idParts[0] == "" {
 		resp.Diagnostics.AddError(
@@ -358,10 +346,10 @@ func findUserWithPermissionsSet(client *sonarcloud.Client, login, projectKey str
 
 	permissionsElems := make([]attr.Value, len(user.Permissions))
 	for i, permission := range user.Permissions {
-		permissionsElems[i] = types.String{Value: permission}
+		permissionsElems[i] = types.StringValue(permission)
 	}
 
-	foundPermissions := types.Set{Elems: permissionsElems, ElemType: types.StringType}
+	foundPermissions := types.SetValueMust(types.StringType, permissionsElems)
 
 	if !foundPermissions.Equal(expectedPermissions) {
 		return nil, fmt.Errorf("the returned permissions do not match the expected permissions (login='%s',projectKey='%s, expected='%v', got='%v')",
@@ -372,12 +360,12 @@ func findUserWithPermissionsSet(client *sonarcloud.Client, login, projectKey str
 	}
 
 	return &UserPermissions{
-		ID:          types.String{Value: projectKey + "-" + login},
-		ProjectKey:  types.String{Value: projectKey},
-		Login:       types.String{Value: user.Login},
-		Name:        types.String{Value: user.Name},
+		ID:          types.StringValue(projectKey + "-" + login),
+		ProjectKey:  types.StringValue(projectKey),
+		Login:       types.StringValue(user.Login),
+		Name:        types.StringValue(user.Name),
 		Permissions: foundPermissions,
-		Avatar:      types.String{Value: user.Avatar},
+		Avatar:      types.StringValue(user.Avatar),
 	}, nil
 
 }
