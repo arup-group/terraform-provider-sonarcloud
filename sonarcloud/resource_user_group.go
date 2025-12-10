@@ -145,21 +145,16 @@ func (r *resourceUserGroup) Update(ctx context.Context, req resource.UpdateReque
 		return
 	}
 
-	changed := changedAttrs(req, diags)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	// Fill in api action struct
-	// Note: we skip values that have not been changed
+	// Note: we only update values that have changed
 	request := user_groups.UpdateRequest{
 		Id: state.ID.ValueString(),
 	}
 
-	if _, ok := changed["name"]; ok {
+	if !state.Name.Equal(plan.Name) {
 		request.Name = plan.Name.ValueString()
 	}
-	if _, ok := changed["description"]; ok {
+	if !state.Description.Equal(plan.Description) {
 		request.Description = plan.Description.ValueString()
 	}
 

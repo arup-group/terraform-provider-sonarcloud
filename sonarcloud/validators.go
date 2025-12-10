@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 // Copied from https://www.terraform.io/plugin/framework/validation
@@ -28,18 +26,12 @@ func (v stringLengthBetweenValidator) MarkdownDescription(ctx context.Context) s
 
 // Validate checks if the length of the string attribute is between Min and Max
 func (v stringLengthBetweenValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
-	var str types.String
-	diags := tfsdk.ValueAs(ctx, req.ConfigValue, &str)
-	resp.Diagnostics.Append(diags...)
-	if diags.HasError() {
+	// In v1+ API, req.ConfigValue is already the proper type
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
 	}
 
-	if str.IsUnknown() || str.IsNull() {
-		return
-	}
-
-	strLen := len(str.ValueString())
+	strLen := len(req.ConfigValue.ValueString())
 
 	if strLen < v.Min || strLen > v.Max {
 		resp.Diagnostics.AddAttributeError(
@@ -69,20 +61,15 @@ func (v allowedOptionsValidator) MarkdownDescription(_ context.Context) string {
 }
 
 func (v allowedOptionsValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
-	var str types.String
-	diags := tfsdk.ValueAs(ctx, req.ConfigValue, &str)
-	resp.Diagnostics.Append(diags...)
-	if diags.HasError() {
-		return
-	}
-
-	if str.IsUnknown() || str.IsNull() {
+	// In v1+ API, req.ConfigValue is already the proper type
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
 	}
 
 	valid := false
+	strValue := req.ConfigValue.ValueString()
 	for _, option := range v.Options {
-		if option == str.ValueString() {
+		if option == strValue {
 			valid = true
 			break
 		}
@@ -92,7 +79,7 @@ func (v allowedOptionsValidator) ValidateString(ctx context.Context, req validat
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
 			"Invalid String Value",
-			fmt.Sprintf("String must be one of %v, got: %s.", v.Options, str.ValueString()),
+			fmt.Sprintf("String must be one of %v, got: %s.", v.Options, strValue),
 		)
 
 		return
@@ -116,19 +103,13 @@ func (v allowedSetOptionsValidator) MarkdownDescription(_ context.Context) strin
 }
 
 func (v allowedSetOptionsValidator) ValidateSet(ctx context.Context, req validator.SetRequest, resp *validator.SetResponse) {
-	var set types.Set
-	diags := tfsdk.ValueAs(ctx, req.ConfigValue, &set)
-	resp.Diagnostics.Append(diags...)
-	if diags.HasError() {
-		return
-	}
-
-	if set.IsUnknown() || set.IsNull() {
+	// In v1+ API, req.ConfigValue is already the proper type
+	if req.ConfigValue.IsUnknown() || req.ConfigValue.IsNull() {
 		return
 	}
 
 	var values []string
-	diags = set.ElementsAs(ctx, &values, true)
+	diags := req.ConfigValue.ElementsAs(ctx, &values, true)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
 		return

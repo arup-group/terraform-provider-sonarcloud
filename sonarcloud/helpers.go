@@ -8,8 +8,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/project_branches"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/projects"
@@ -17,15 +15,6 @@ import (
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/user_groups"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/user_tokens"
 )
-
-// changedAttrs returns a map where the keys are the names of all the attributes that were changed
-// Note that the name is not the full path, but only the AttributeName of the last path step.
-func changedAttrs(req resource.UpdateRequest, diags diag.Diagnostics) map[string]struct{} {
-	// Note: In v1+ API, accessing raw plan/state values has changed
-	// This function may need to be reimplemented or removed if not used
-	// For now, returning empty map to maintain compatibility
-	return make(map[string]struct{})
-}
 
 // findGroup returns the group with the given name if it exists in the response
 func findGroup(response *user_groups.SearchResponseAll, name string) (Group, bool) {

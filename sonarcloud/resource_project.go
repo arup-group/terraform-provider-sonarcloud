@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/projects"
 )
@@ -37,10 +38,16 @@ func (r *resourceProject) Schema(ctx context.Context, req resource.SchemaRequest
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
+				Validators: []validator.String{
+					stringLengthBetween(1, 255),
+				},
 			},
 			"key": schema.StringAttribute{
 				Required:    true,
 				Description: "The key of the project. **Warning**: must be globally unique.",
+				Validators: []validator.String{
+					stringLengthBetween(1, 400),
+				},
 			},
 			"visibility": schema.StringAttribute{
 				Optional: true,
@@ -48,6 +55,9 @@ func (r *resourceProject) Schema(ctx context.Context, req resource.SchemaRequest
 				Description: "The visibility of the project. Use `private` to only share it with your organization." +
 					" Use `public` if the project should be visible to everyone. Defaults to the organization's default visibility." +
 					" **Note:** private projects are only available when you have a SonarCloud subscription.",
+				Validators: []validator.String{
+					allowedOptions("public", "private"),
+				},
 			},
 		},
 	}
@@ -148,12 +158,8 @@ func (r *resourceProject) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	changed := changedAttrs(req, diags)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if _, ok := changed["key"]; ok {
+	// Check if key changed
+	if !state.Key.Equal(plan.Key) {
 		request := projects.UpdateKeyRequest{
 			From: state.Key.ValueString(),
 			To:   plan.Key.ValueString(),
@@ -169,7 +175,8 @@ func (r *resourceProject) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 
-	if _, ok := changed["visibility"]; ok {
+	// Check if visibility changed
+	if !state.Visibility.Equal(plan.Visibility) {
 		request := projects.UpdateVisibilityRequest{
 			Project:    plan.Key.ValueString(),
 			Visibility: plan.Visibility.ValueString(),

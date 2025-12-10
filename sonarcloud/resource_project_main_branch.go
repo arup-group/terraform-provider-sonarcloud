@@ -149,15 +149,12 @@ func (r *resourceProjectMainBranch) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	changed := changedAttrs(req, diags)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if _, ok := changed["name"]; !ok {
+	// Check if name changed (should always be true for Update)
+	if state.Name.Equal(plan.Name) {
 		resp.Diagnostics.AddError(
 			"Name from plan does not differ from state.",
 			"This should not be possible and indicates an issue with the provider. Please contact the developers.")
+		return
 	}
 
 	request := project_branches.RenameRequest{

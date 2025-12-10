@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/qualitygates"
 )
@@ -23,7 +24,57 @@ func (r *resourceQualityGate) Metadata(ctx context.Context, req resource.Metadat
 
 func (r *resourceQualityGate) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// TODO: Manually convert old schema
+		Description: "This resource manages a Quality Gate",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed:    true,
+				Description: "Implicit Terraform ID",
+			},
+			"gate_id": schema.Float64Attribute{
+				Computed:    true,
+				Description: "Id computed by SonarCloud servers",
+			},
+			"name": schema.StringAttribute{
+				Required:    true,
+				Description: "Name of the Quality Gate.",
+			},
+			"is_built_in": schema.BoolAttribute{
+				Computed:    true,
+				Description: "Defines whether the quality gate is built in.",
+			},
+			"is_default": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Defines whether the quality gate is the default gate for an organization. **WARNING**: Must be assigned to one quality gate per organization at all times.",
+			},
+			"conditions": schema.SetNestedAttribute{
+				Optional:    true,
+				Description: "The conditions of this quality gate. Please query https://sonarcloud.io/api/metrics/search for an up-to-date list of conditions.",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Float64Attribute{
+							Computed:    true,
+							Description: "Index/ID of the Condition.",
+						},
+						"metric": schema.StringAttribute{
+							Required:    true,
+							Description: "The metric on which the condition is based.",
+						},
+						"op": schema.StringAttribute{
+							Optional:    true,
+							Description: "Operation on which the metric is evaluated must be either: LT, GT.",
+							Validators: []validator.String{
+								allowedOptions("LT", "GT"),
+							},
+						},
+						"error": schema.StringAttribute{
+							Required:    true,
+							Description: "The value on which the condition errors.",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
