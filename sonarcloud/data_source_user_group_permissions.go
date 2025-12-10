@@ -4,69 +4,64 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud"
 )
 
-type dataSourceUserGroupPermissionsType struct{}
+type dataSourceUserGroupPermissions struct {
+	p *sonarcloudProvider
+}
 
-func (d dataSourceUserGroupPermissionsType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ datasource.DataSource = &dataSourceUserGroupPermissions{}
+
+func (d *dataSourceUserGroupPermissions) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_user_group_permissions"
+}
+
+func (d *dataSourceUserGroupPermissions) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This data source retrieves all the user groups and their permissions.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:        types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed:    true,
 				Description: "The implicit ID of the data source.",
 			},
-			"project_key": {
-				Type:        types.StringType,
+			"project_key": schema.StringAttribute{
 				Optional:    true,
 				Description: "The key of the project to read the user group permissions for.",
 			},
-			"groups": {
+			"groups": schema.ListNestedAttribute{
 				Computed:    true,
 				Description: "The groups and their permissions.",
-				Attributes: tfsdk.ListNestedAttributes(map[string]tfsdk.Attribute{
-					"id": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The ID of the user group.",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.StringAttribute{
+							Computed:    true,
+							Description: "The ID of the user group.",
+						},
+						"name": schema.StringAttribute{
+							Computed:    true,
+							Description: "The name of the user group.",
+						},
+						"description": schema.StringAttribute{
+							Computed:    true,
+							Description: "The description of the user group.",
+						},
+						"permissions": schema.SetAttribute{
+							ElementType: types.StringType,
+							Computed:    true,
+							Description: "The permissions of this user group.",
+						},
 					},
-					"name": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The name of the user group.",
-					},
-					"description": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The description of the user group.",
-					},
-					"permissions": {
-						Type:        types.SetType{ElemType: types.StringType},
-						Computed:    true,
-						Description: "The permissions of this user group.",
-					},
-				}),
+				},
 			},
 		},
-	}, nil
+	}
 }
 
-func (d dataSourceUserGroupPermissionsType) NewDataSource(_ context.Context, p tfsdk.Provider) (tfsdk.DataSource, diag.Diagnostics) {
-	return dataSourceUserGroupPermissions{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type dataSourceUserGroupPermissions struct {
-	p provider
-}
-
-func (d dataSourceUserGroupPermissions) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
+func (d *dataSourceUserGroupPermissions) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var config DataUserGroupPermissions
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
@@ -75,7 +70,7 @@ func (d dataSourceUserGroupPermissions) Read(ctx context.Context, req tfsdk.Read
 	}
 
 	// Query for permissions
-	searchRequest := UserGroupPermissionsSearchRequest{ProjectKey: config.ProjectKey.Value}
+	searchRequest := UserGroupPermissionsSearchRequest{ProjectKey: config.ProjectKey.ValueString()}
 	groups, err := sonarcloud.GetAll[UserGroupPermissionsSearchRequest, UserGroupPermissionsSearchResponseGroup](d.p.client, "/permissions/groups", searchRequest, "groups")
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -90,18 +85,18 @@ func (d dataSourceUserGroupPermissions) Read(ctx context.Context, req tfsdk.Read
 	for _, group := range groups {
 		permissionsElems := make([]attr.Value, len(group.Permissions))
 		for i, permission := range group.Permissions {
-			permissionsElems[i] = types.String{Value: permission}
+			permissionsElems[i] = types.StringValue(permission)
 		}
 
 		allGroups = append(allGroups, DataUserGroupPermissionsGroup{
-			ID:          types.String{Value: group.Id},
-			Name:        types.String{Value: group.Name},
-			Description: types.String{Value: group.Description},
-			Permissions: types.Set{Elems: permissionsElems, ElemType: types.StringType},
+			ID:          types.StringValue(group.Id),
+			Name:        types.StringValue(group.Name),
+			Description: types.StringValue(group.Description),
+			Permissions: types.SetValueMust(types.StringType, permissionsElems),
 		})
 	}
 	result.Groups = allGroups
-	result.ID = types.String{Value: d.p.organization}
+	result.ID = types.StringValue(d.p.organization)
 	result.ProjectKey = config.ProjectKey
 
 	diags = resp.State.Set(ctx, result)

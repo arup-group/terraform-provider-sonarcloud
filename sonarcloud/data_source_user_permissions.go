@@ -4,72 +4,66 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud"
 )
 
-type dataSourceUserPermissionsType struct{}
+type dataSourceUserPermissions struct {
+	p *sonarcloudProvider
+}
 
-func (d dataSourceUserPermissionsType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ datasource.DataSource = &dataSourceUserPermissions{}
+
+func (d *dataSourceUserPermissions) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_user_permissions"
+}
+
+func (d *dataSourceUserPermissions) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This data source retrieves all the users of an organization and their permissions.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:        types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed:    true,
 				Description: "The implicit ID of the data source.",
 			},
-			"project_key": {
-				Type:        types.StringType,
+			"project_key": schema.StringAttribute{
 				Optional:    true,
 				Description: "The key of the project to read the user permissions for.",
 			},
-			"users": {
+			"users": schema.ListNestedAttribute{
 				Computed:    true,
 				Description: "The users and their permissions.",
-				Attributes: tfsdk.ListNestedAttributes(map[string]tfsdk.Attribute{
-					"login": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The login of the user.",
-						PlanModifiers: tfsdk.AttributePlanModifiers{
-							tfsdk.RequiresReplace(),
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"login": schema.StringAttribute{
+							Computed:    true,
+							Description: "The login of the user.",
+						},
+						"name": schema.StringAttribute{
+							Computed:    true,
+							Description: "The name of the user.",
+						},
+						"permissions": schema.SetAttribute{
+							ElementType: types.StringType,
+							Required:    true,
+							Description: "The permissions of the user.",
+						},
+						"avatar": schema.StringAttribute{
+							Computed:    true,
+							Description: "The avatar ID of the user.",
 						},
 					},
-					"name": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The name of the user.",
-					},
-					"permissions": {
-						Type:        types.SetType{ElemType: types.StringType},
-						Required:    true,
-						Description: "The permissions of the user.",
-					},
-					"avatar": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The avatar ID of the user.",
-					},
-				}),
+				},
 			},
 		},
-	}, nil
+	}
 }
 
-func (d dataSourceUserPermissionsType) NewDataSource(_ context.Context, p tfsdk.Provider) (tfsdk.DataSource, diag.Diagnostics) {
-	return dataSourceUserPermissions{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type dataSourceUserPermissions struct {
-	p provider
-}
-
-func (d dataSourceUserPermissions) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
+func (d *dataSourceUserPermissions) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var config DataUserPermissions
 	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
@@ -78,7 +72,7 @@ func (d dataSourceUserPermissions) Read(ctx context.Context, req tfsdk.ReadDataS
 	}
 
 	// Query for permissions
-	searchRequest := UserPermissionsSearchRequest{ProjectKey: config.ProjectKey.Value}
+	searchRequest := UserPermissionsSearchRequest{ProjectKey: config.ProjectKey.ValueString()}
 	users, err := sonarcloud.GetAll[UserPermissionsSearchRequest, UserPermissionsSearchResponseUser](d.p.client, "/permissions/users", searchRequest, "users")
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -93,18 +87,18 @@ func (d dataSourceUserPermissions) Read(ctx context.Context, req tfsdk.ReadDataS
 	for _, user := range users {
 		permissionsElems := make([]attr.Value, len(user.Permissions))
 		for i, permission := range user.Permissions {
-			permissionsElems[i] = types.String{Value: permission}
+			permissionsElems[i] = types.StringValue(permission)
 		}
 
 		allUsers = append(allUsers, DataUserPermissionsUser{
-			Login:       types.String{Value: user.Login},
-			Name:        types.String{Value: user.Name},
-			Permissions: types.Set{Elems: permissionsElems, ElemType: types.StringType},
-			Avatar:      types.String{Value: user.Avatar},
+			Login:       types.StringValue(user.Login),
+			Name:        types.StringValue(user.Name),
+			Permissions: types.SetValueMust(types.StringType, permissionsElems),
+			Avatar:      types.StringValue(user.Avatar),
 		})
 	}
 	result.Users = allUsers
-	result.ID = types.String{Value: d.p.organization}
+	result.ID = types.StringValue(d.p.organization)
 	result.ProjectKey = config.ProjectKey
 
 	diags = resp.State.Set(ctx, result)
