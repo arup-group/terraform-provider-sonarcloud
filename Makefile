@@ -6,6 +6,11 @@ VERSION?=0.1.0-local
 OS_ARCH?=linux_amd64
 BINARY_GLOB=./dist/terraform-provider-${NAME}_${OS_ARCH}/terraform*
 
+ifneq (,$(wildcard .env))
+    include .env
+    export
+endif
+
 default: install
 
 build:
