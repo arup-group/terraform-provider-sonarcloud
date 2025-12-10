@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/project_branches"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/projects"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/qualitygates"
@@ -18,27 +19,37 @@ import (
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/user_tokens"
 )
 
-// changedAttrs detects which attributes changed between plan and state
+// changedAttrs detects which attributes changed between plan and state by comparing Raw values
 func changedAttrs(ctx context.Context, req resource.UpdateRequest) map[string]struct{} {
 	changes := make(map[string]struct{})
 
-	// Get the plan and state as objects
-	var planObj, stateObj types.Object
-	req.Plan.Get(ctx, &planObj)
-	req.State.Get(ctx, &stateObj)
+	// Get the underlying tftypes.Value from Raw fields
+	planRaw := req.Plan.Raw
+	stateRaw := req.State.Raw
 
-	planAttrs := planObj.Attributes()
-	stateAttrs := stateObj.Attributes()
+	// Both should be objects
+	var planAttrs map[string]tftypes.Value
+	var stateAttrs map[string]tftypes.Value
 
-	// Compare each attribute in the plan with the state
+	err := planRaw.As(&planAttrs)
+	if err != nil {
+		// Can't extract attributes, return empty
+		return changes
+	}
+
+	err = stateRaw.As(&stateAttrs)
+	if err != nil {
+		// Can't extract attributes, return empty
+		return changes
+	}
+
+	// Compare each attribute
 	for name, planVal := range planAttrs {
 		stateVal, exists := stateAttrs[name]
 		if !exists {
-			// Attribute exists in plan but not in state - it changed
 			changes[name] = struct{}{}
 			continue
 		}
-		// Check if values are different
 		if !planVal.Equal(stateVal) {
 			changes[name] = struct{}{}
 		}
