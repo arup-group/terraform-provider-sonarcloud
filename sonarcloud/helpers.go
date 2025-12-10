@@ -2,17 +2,15 @@ package sonarcloud
 
 import (
 	"fmt"
-	"github.com/cenkalti/backoff/v4"
 	"math/big"
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/project_branches"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/projects"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/qualitygates"
@@ -144,13 +142,13 @@ func findQualityGate(response *qualitygates.ListResponse, name string) (QualityG
 // findSelection returns a Selection{} struct with the given project keys if they exist in a response
 // this can be sped up using hashmaps, but I didn't feel like introducing a new dependency/taking code from somewhere.
 // Ex library: https://pkg.go.dev/github.com/juliangruber/go-intersect/v2
-func findSelection(response *qualitygates.SearchResponse, keys []attr.Value) (Selection, bool) {
+func findSelection(response *qualitygates.SearchResponse, keys []string) (Selection, bool) {
 	projectKeys := make([]attr.Value, 0)
 	ok := true
 	for _, k := range keys {
 		ok = false
 		for _, s := range response.Results {
-			if k.Equal(types.StringValue(s.Key)) {
+			if k == s.Key {
 				projectKeys = append(projectKeys, types.StringValue(strings.Trim(s.Key, "\"")))
 				ok = true
 				break
@@ -193,7 +191,7 @@ func stringAttributesContain(haystack []attr.Value, needle string) bool {
 func diffAttrSets(haves, wants types.Set) (toAdd, toRemove []attr.Value) {
 	havesElements := haves.Elements()
 	wantsElements := wants.Elements()
-	
+
 	for _, have := range havesElements {
 		if haveStr, ok := have.(types.String); ok {
 			if !stringAttributesContain(wantsElements, haveStr.ValueString()) {

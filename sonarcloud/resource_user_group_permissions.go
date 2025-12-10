@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/permissions"
@@ -32,10 +31,41 @@ func (r *resourceUserGroupPermissions) Metadata(ctx context.Context, req resourc
 
 func (r *resourceUserGroupPermissions) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// TODO: Manually convert old schema
+		Description: "This resource manages permissions for a user group.",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed:    true,
+				Description: "The ID of the user group permissions resource (computed as project_key-name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"project_key": schema.StringAttribute{
+				Required:    true,
+				Description: "The project key where the permissions apply.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"name": schema.StringAttribute{
+				Required:    true,
+				Description: "The name of the user group.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"description": schema.StringAttribute{
+				Computed:    true,
+				Description: "The description of the user group.",
+			},
+			"permissions": schema.SetAttribute{
+				ElementType: types.StringType,
+				Required:    true,
+				Description: "The set of permissions for the user group on the project.",
+			},
+		},
 	}
 }
-
 
 func (r *resourceUserGroupPermissions) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
@@ -55,10 +85,18 @@ func (r *resourceUserGroupPermissions) Create(ctx context.Context, req resource.
 		return
 	}
 
+	// Extract permissions from Set
+	var permissionsList []string
+	diags = plan.Permissions.ElementsAs(ctx, &permissionsList, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Add permissions one by one
 	wg := sync.WaitGroup{}
-	for _, elem := range plan.Permissions.Elems {
-		permission := elem.(types.String).Value
+	for _, permission := range permissionsList {
+		permissionValue := permission // capture loop variable
 
 		go func() {
 			wg.Add(1)
@@ -66,7 +104,7 @@ func (r *resourceUserGroupPermissions) Create(ctx context.Context, req resource.
 
 			request := permissions.AddGroupRequest{
 				GroupName:    plan.Name.ValueString(),
-				Permission:   permission,
+				Permission:   permissionValue,
 				ProjectKey:   plan.ProjectKey.ValueString(),
 				Organization: r.p.organization,
 			}
@@ -94,13 +132,6 @@ func (r *resourceUserGroupPermissions) Create(ctx context.Context, req resource.
 		resp.Diagnostics.AddError("Could not set user group permissions",
 			"The requests to set the permissions timed out.",
 		)
-	}
-
-	plannedPermissions := make([]string, len(plan.Permissions.Elems))
-	diags = plan.Permissions.ElementsAs(ctx, &plannedPermissions, true)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
 	}
 
 	backoffConfig := defaultBackoffConfig()
@@ -131,7 +162,7 @@ func (r *resourceUserGroupPermissions) Read(ctx context.Context, req resource.Re
 	}
 
 	// Query for permissions
-	searchRequest := UserGroupPermissionsSearchRequest{ProjectKey: state.ProjectKey.Value}
+	searchRequest := UserGroupPermissionsSearchRequest{ProjectKey: state.ProjectKey.ValueString()}
 	groups, err := sonarcloud.GetAll[UserGroupPermissionsSearchRequest, UserGroupPermissionsSearchResponseGroup](r.p.client, "/permissions/groups", searchRequest, "groups")
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -142,7 +173,7 @@ func (r *resourceUserGroupPermissions) Read(ctx context.Context, req resource.Re
 	}
 
 	if group, ok := findUserGroup(groups, state.Name.ValueString()); ok {
-		permissionsElems := make([]attr.ValueString(), len(group.Permissions))
+		permissionsElems := make([]attr.Value, len(group.Permissions))
 
 		for i, permission := range group.Permissions {
 			permissionsElems[i] = types.StringValue(permission)
@@ -153,7 +184,7 @@ func (r *resourceUserGroupPermissions) Read(ctx context.Context, req resource.Re
 			ProjectKey:  state.ProjectKey,
 			Name:        types.StringValue(group.Name),
 			Description: types.StringValue(group.Description),
-			Permissions: types.Set{Elems: permissionsElems, ElemType: types.StringType},
+			Permissions: types.SetValueMust(types.StringType, permissionsElems),
 		}
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
@@ -180,9 +211,10 @@ func (r *resourceUserGroupPermissions) Update(ctx context.Context, req resource.
 	toAdd, toRemove := diffAttrSets(state.Permissions, plan.Permissions)
 
 	for _, remove := range toRemove {
+		removeStr := remove.(types.String)
 		removeRequest := permissions.RemoveGroupRequest{
 			GroupName:    state.Name.ValueString(),
-			Permission:   remove.(types.String).Value,
+			Permission:   removeStr.ValueString(),
 			ProjectKey:   state.ProjectKey.ValueString(),
 			Organization: r.p.organization,
 		}
@@ -196,9 +228,10 @@ func (r *resourceUserGroupPermissions) Update(ctx context.Context, req resource.
 		}
 	}
 	for _, add := range toAdd {
+		addStr := add.(types.String)
 		addRequest := permissions.AddGroupRequest{
 			GroupName:    plan.Name.ValueString(),
-			Permission:   add.(types.String).Value,
+			Permission:   addStr.ValueString(),
 			ProjectKey:   plan.ProjectKey.ValueString(),
 			Organization: r.p.organization,
 		}
@@ -209,13 +242,6 @@ func (r *resourceUserGroupPermissions) Update(ctx context.Context, req resource.
 			)
 			return
 		}
-	}
-
-	plannedPermissions := make([]string, len(plan.Permissions.Elems))
-	diags = plan.Permissions.ElementsAs(ctx, &plannedPermissions, true)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
 	}
 
 	backoffConfig := defaultBackoffConfig()
@@ -245,10 +271,18 @@ func (r *resourceUserGroupPermissions) Delete(ctx context.Context, req resource.
 		return
 	}
 
-	for _, remove := range state.Permissions.Elems {
+	// Extract permissions from Set
+	var permissionsList []string
+	diags = state.Permissions.ElementsAs(ctx, &permissionsList, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for _, permission := range permissionsList {
 		removeRequest := permissions.RemoveGroupRequest{
 			GroupName:    state.Name.ValueString(),
-			Permission:   remove.(types.String).Value,
+			Permission:   permission,
 			ProjectKey:   state.ProjectKey.ValueString(),
 			Organization: r.p.organization,
 		}
@@ -305,12 +339,12 @@ func findUserGroupWithPermissionsSet(client *sonarcloud.Client, name, projectKey
 		return nil, fmt.Errorf("group not found in response (name='%s',projectKey='%s')", name, projectKey)
 	}
 
-	permissionsElems := make([]attr.ValueString(), len(group.Permissions))
+	permissionsElems := make([]attr.Value, len(group.Permissions))
 	for i, permission := range group.Permissions {
 		permissionsElems[i] = types.StringValue(permission)
 	}
 
-	foundPermissions := types.Set{Elems: permissionsElems, ElemType: types.StringType}
+	foundPermissions := types.SetValueMust(types.StringType, permissionsElems)
 
 	if !foundPermissions.Equal(expectedPermissions) {
 		return nil, fmt.Errorf("the returned permissions do not match the expected permissions (name='%s',projectKey='%s, expected='%v', got='%v')",

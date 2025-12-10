@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/qualitygates"
 )
@@ -128,6 +127,14 @@ func (r *resourceQualityGateSelection) Read(ctx context.Context, req resource.Re
 		return
 	}
 
+	// Extract project keys from Set
+	var stateKeys []string
+	diags = state.ProjectKeys.ElementsAs(ctx, &stateKeys, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	searchRequest := qualitygates.SearchRequest{
 		GateId:       state.GateId.ValueString(),
 		Organization: r.p.organization,
@@ -140,7 +147,7 @@ func (r *resourceQualityGateSelection) Read(ctx context.Context, req resource.Re
 		)
 		return
 	}
-	if result, ok := findSelection(res, state.ProjectKeys.Elems); ok {
+	if result, ok := findSelection(res, stateKeys); ok {
 		result.GateId = types.StringValue(state.GateId.ValueString())
 		result.ID = types.StringValue(state.GateId.ValueString())
 		diags = resp.State.Set(ctx, result)
@@ -165,12 +172,16 @@ func (r *resourceQualityGateSelection) Update(ctx context.Context, req resource.
 		return
 	}
 
-	sel, rem := diffSelection(state, plan)
+	sel, rem, diags := diffSelection(ctx, state, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	for _, s := range rem {
 		deselectRequest := qualitygates.DeselectRequest{
 			Organization: r.p.organization,
-			ProjectKey:   s.(types.String).Value,
+			ProjectKey:   s,
 		}
 		err := r.p.client.Qualitygates.Deselect(deselectRequest)
 		if err != nil {
@@ -185,7 +196,7 @@ func (r *resourceQualityGateSelection) Update(ctx context.Context, req resource.
 		selectRequest := qualitygates.SelectRequest{
 			GateId:       state.GateId.ValueString(),
 			Organization: r.p.organization,
-			ProjectKey:   s.(types.String).Value,
+			ProjectKey:   s,
 		}
 		err := r.p.client.Qualitygates.Select(selectRequest)
 		if err != nil {
@@ -195,6 +206,14 @@ func (r *resourceQualityGateSelection) Update(ctx context.Context, req resource.
 			)
 			return
 		}
+	}
+
+	// Extract project keys from plan for search
+	var planKeys []string
+	diags = plan.ProjectKeys.ElementsAs(ctx, &planKeys, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	request := qualitygates.SearchRequest{
@@ -209,7 +228,7 @@ func (r *resourceQualityGateSelection) Update(ctx context.Context, req resource.
 		)
 		return
 	}
-	if result, ok := findSelection(res, plan.ProjectKeys.Elems); ok {
+	if result, ok := findSelection(res, planKeys); ok {
 		result.GateId = types.StringValue(state.GateId.ValueString())
 		result.ID = types.StringValue(state.GateId.ValueString())
 		diags = resp.State.Set(ctx, result)
@@ -217,7 +236,7 @@ func (r *resourceQualityGateSelection) Update(ctx context.Context, req resource.
 	} else {
 		resp.Diagnostics.AddError(
 			"Could not find Quality Gate Selection",
-			fmt.Sprintf("The findSelection function was unable to find the project keys: %+v in the response: %+v", plan.ProjectKeys.Elems, res),
+			fmt.Sprintf("The findSelection function was unable to find the project keys: %+v in the response: %+v", planKeys, res),
 		)
 		return
 	}
@@ -231,10 +250,18 @@ func (r *resourceQualityGateSelection) Delete(ctx context.Context, req resource.
 		return
 	}
 
-	for _, s := range state.ProjectKeys.Elems {
+	// Extract project keys from Set
+	var stateKeys []string
+	diags = state.ProjectKeys.ElementsAs(ctx, &stateKeys, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for _, s := range stateKeys {
 		request := qualitygates.DeselectRequest{
 			Organization: r.p.organization,
-			ProjectKey:   s.(types.String).Value,
+			ProjectKey:   s,
 		}
 		err := r.p.client.Qualitygates.Deselect(request)
 		if err != nil {
@@ -249,27 +276,35 @@ func (r *resourceQualityGateSelection) Delete(ctx context.Context, req resource.
 	resp.State.RemoveResource(ctx)
 }
 
-func diffSelection(state, plan Selection) (sel, rem []attr.Value) {
-	for _, old := range state.ProjectKeys.Elems {
-		// assume that old is a string
-		if !containSelection(plan.ProjectKeys.Elems, old.(types.String).Value) {
-			rem = append(rem, types.String{Value: old.(types.String).Value})
+func diffSelection(ctx context.Context, state, plan Selection) (sel, rem []string, diags diag.Diagnostics) {
+	var stateKeys, planKeys []string
+	diags = state.ProjectKeys.ElementsAs(ctx, &stateKeys, false)
+	if diags.HasError() {
+		return
+	}
+	diags = plan.ProjectKeys.ElementsAs(ctx, &planKeys, false)
+	if diags.HasError() {
+		return
+	}
+
+	for _, old := range stateKeys {
+		if !containSelection(planKeys, old) {
+			rem = append(rem, old)
 		}
 	}
-	for _, new := range plan.ProjectKeys.Elems {
-		// assume that new is a string
-		if !containSelection(state.ProjectKeys.Elems, new.(types.String).Value) {
-			sel = append(sel, types.String{Value: new.(types.String).Value})
+	for _, new := range planKeys {
+		if !containSelection(stateKeys, new) {
+			sel = append(sel, new)
 		}
 	}
 
-	return sel, rem
+	return sel, rem, diags
 }
 
 // Check if a condition is contained in a condition list
-func containSelection(list []attr.Value, item string) bool {
+func containSelection(list []string, item string) bool {
 	for _, c := range list {
-		if c.Equal(types.String{Value: item}) {
+		if c == item {
 			return true
 		}
 	}

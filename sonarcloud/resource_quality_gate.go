@@ -5,12 +5,8 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 
-	
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/qualitygates"
 )
@@ -30,7 +26,6 @@ func (r *resourceQualityGate) Schema(ctx context.Context, req resource.SchemaReq
 		// TODO: Manually convert old schema
 	}
 }
-
 
 func (r *resourceQualityGate) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
