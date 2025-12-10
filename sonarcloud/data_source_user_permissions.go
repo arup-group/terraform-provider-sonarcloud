@@ -6,8 +6,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud"
 )
@@ -49,7 +47,7 @@ func (d *dataSourceUserPermissions) Schema(ctx context.Context, req datasource.S
 						},
 						"permissions": schema.SetAttribute{
 							ElementType: types.StringType,
-							Required:    true,
+							Computed:    true,
 							Description: "The permissions of the user.",
 						},
 						"avatar": schema.StringAttribute{
