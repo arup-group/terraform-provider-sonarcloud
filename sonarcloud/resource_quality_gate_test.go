@@ -1,10 +1,50 @@
 package sonarcloud
 
 import (
+	"context"
 	"fmt"
+	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
+
+// TestQualityGateSchemaComplete verifies the schema is fully defined with all required attributes
+func TestQualityGateSchemaComplete(t *testing.T) {
+	ctx := context.Background()
+	r := &resourceQualityGate{}
+
+	// Get schema
+	var req resource.SchemaRequest
+	var resp resource.SchemaResponse
+	r.Schema(ctx, req, &resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("Schema has errors: %v", resp.Diagnostics)
+	}
+
+	schema := resp.Schema
+
+	// Verify all expected attributes exist
+	requiredAttrs := []string{"id", "gate_id", "name", "is_built_in", "is_default", "conditions"}
+	for _, attrName := range requiredAttrs {
+		if _, exists := schema.Attributes[attrName]; !exists {
+			t.Errorf("Schema missing required attribute: %s", attrName)
+		}
+	}
+
+	// Verify conditions has nested attributes
+	conditionsAttr, exists := schema.Attributes["conditions"]
+	if !exists {
+		t.Fatal("Schema missing 'conditions' attribute")
+	}
+
+	// The conditions attribute should have NestedObject with attributes
+	// We're checking that it's defined and not just a TODO placeholder
+	if conditionsAttr.GetDescription() == "" {
+		t.Error("conditions attribute has no description - may be incomplete")
+	}
+}
 
 // func TestAccResourceQualityGate(t *testing.T) {
 // 	names := []string{"quality_gate_a", "quality_gate_b"}

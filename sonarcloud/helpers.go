@@ -1,6 +1,7 @@
 package sonarcloud
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/project_branches"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/projects"
@@ -15,6 +17,35 @@ import (
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/user_groups"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/user_tokens"
 )
+
+// changedAttrs detects which attributes changed between plan and state
+func changedAttrs(ctx context.Context, req resource.UpdateRequest) map[string]struct{} {
+	changes := make(map[string]struct{})
+
+	// Get the plan and state as objects
+	var planObj, stateObj types.Object
+	req.Plan.Get(ctx, &planObj)
+	req.State.Get(ctx, &stateObj)
+
+	planAttrs := planObj.Attributes()
+	stateAttrs := stateObj.Attributes()
+
+	// Compare each attribute in the plan with the state
+	for name, planVal := range planAttrs {
+		stateVal, exists := stateAttrs[name]
+		if !exists {
+			// Attribute exists in plan but not in state - it changed
+			changes[name] = struct{}{}
+			continue
+		}
+		// Check if values are different
+		if !planVal.Equal(stateVal) {
+			changes[name] = struct{}{}
+		}
+	}
+
+	return changes
+}
 
 // findGroup returns the group with the given name if it exists in the response
 func findGroup(response *user_groups.SearchResponseAll, name string) (Group, bool) {
