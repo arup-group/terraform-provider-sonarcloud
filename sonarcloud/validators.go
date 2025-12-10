@@ -3,6 +3,7 @@ package sonarcloud
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -26,23 +27,23 @@ func (v stringLengthBetweenValidator) MarkdownDescription(ctx context.Context) s
 }
 
 // Validate checks if the length of the string attribute is between Min and Max
-func (v stringLengthBetweenValidator) Validate(ctx context.Context, req tfsdk.ValidateAttributeRequest, resp *tfsdk.ValidateAttributeResponse) {
+func (v stringLengthBetweenValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	var str types.String
-	diags := tfsdk.ValueAs(ctx, req.AttributeConfig, &str)
+	diags := tfsdk.ValueAs(ctx, req.ConfigValue, &str)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
 		return
 	}
 
-	if str.Unknown || str.Null {
+	if str.IsUnknown() || str.IsNull() {
 		return
 	}
 
-	strLen := len(str.Value)
+	strLen := len(str.ValueString())
 
 	if strLen < v.Min || strLen > v.Max {
 		resp.Diagnostics.AddAttributeError(
-			req.AttributePath,
+			req.Path,
 			"Invalid String Length",
 			fmt.Sprintf("String length must be between %d and %d, got: %d.", v.Min, v.Max, strLen),
 		)
@@ -67,21 +68,21 @@ func (v allowedOptionsValidator) MarkdownDescription(_ context.Context) string {
 	return fmt.Sprintf("option must be one of `%v`", v.Options)
 }
 
-func (v allowedOptionsValidator) Validate(ctx context.Context, req tfsdk.ValidateAttributeRequest, resp *tfsdk.ValidateAttributeResponse) {
+func (v allowedOptionsValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	var str types.String
-	diags := tfsdk.ValueAs(ctx, req.AttributeConfig, &str)
+	diags := tfsdk.ValueAs(ctx, req.ConfigValue, &str)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
 		return
 	}
 
-	if str.Unknown || str.Null {
+	if str.IsUnknown() || str.IsNull() {
 		return
 	}
 
 	valid := false
 	for _, option := range v.Options {
-		if option == str.Value {
+		if option == str.ValueString() {
 			valid = true
 			break
 		}
@@ -89,9 +90,9 @@ func (v allowedOptionsValidator) Validate(ctx context.Context, req tfsdk.Validat
 
 	if !valid {
 		resp.Diagnostics.AddAttributeError(
-			req.AttributePath,
+			req.Path,
 			"Invalid String Value",
-			fmt.Sprintf("String must be one of %v, got: %s.", v.Options, str.Value),
+			fmt.Sprintf("String must be one of %v, got: %s.", v.Options, str.ValueString()),
 		)
 
 		return
@@ -114,15 +115,15 @@ func (v allowedSetOptionsValidator) MarkdownDescription(_ context.Context) strin
 	return fmt.Sprintf("value in set must be one of `%v`", v.Options)
 }
 
-func (v allowedSetOptionsValidator) Validate(ctx context.Context, req tfsdk.ValidateAttributeRequest, resp *tfsdk.ValidateAttributeResponse) {
+func (v allowedSetOptionsValidator) ValidateSet(ctx context.Context, req validator.SetRequest, resp *validator.SetResponse) {
 	var set types.Set
-	diags := tfsdk.ValueAs(ctx, req.AttributeConfig, &set)
+	diags := tfsdk.ValueAs(ctx, req.ConfigValue, &set)
 	resp.Diagnostics.Append(diags...)
 	if diags.HasError() {
 		return
 	}
 
-	if set.Unknown || set.Null {
+	if set.IsUnknown() || set.IsNull() {
 		return
 	}
 
@@ -141,7 +142,7 @@ func (v allowedSetOptionsValidator) Validate(ctx context.Context, req tfsdk.Vali
 	for _, val := range values {
 		if _, ok := options[val]; !ok {
 			resp.Diagnostics.AddAttributeError(
-				req.AttributePath,
+				req.Path,
 				"Invalid String Element in Set",
 				fmt.Sprintf("Element must be one of %v, got: %s.", v.Options, val),
 			)

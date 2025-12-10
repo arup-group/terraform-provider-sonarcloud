@@ -3,65 +3,58 @@ package sonarcloud
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/projects"
 )
 
-type dataSourceProjectsType struct{}
+type dataSourceProjects struct {
+	p *sonarcloudProvider
+}
 
-func (d dataSourceProjectsType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ datasource.DataSource = &dataSourceProjects{}
+
+func (d *dataSourceProjects) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_projects"
+}
+
+func (d *dataSourceProjects) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This data source retrieves a list of projects for the configured organization.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:     types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"projects": {
+			"projects": schema.ListNestedAttribute{
 				Computed:    true,
 				Description: "The projects of this organization.",
-				Attributes: tfsdk.ListNestedAttributes(map[string]tfsdk.Attribute{
-					"id": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "ID of the project. Equals to the project name.",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.StringAttribute{
+							Computed:    true,
+							Description: "ID of the project. Equals to the project name.",
+						},
+						"name": schema.StringAttribute{
+							Computed:    true,
+							Description: "The name of the project.",
+						},
+						"key": schema.StringAttribute{
+							Computed:    true,
+							Description: "The key of the project.",
+						},
+						"visibility": schema.StringAttribute{
+							Computed:    true,
+							Description: "The visibility of the project.",
+						},
 					},
-					"name": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The name of the project.",
-					},
-					"key": {
-						Type:        types.StringType,
-						Required:    true,
-						Description: "The key of the project.",
-					},
-					"visibility": {
-						Type:        types.StringType,
-						Computed:    true,
-						Description: "The visibility of the project.",
-					},
-				}),
+				},
 			},
 		},
-	}, nil
+	}
 }
 
-func (d dataSourceProjectsType) NewDataSource(_ context.Context, p tfsdk.Provider) (tfsdk.DataSource, diag.Diagnostics) {
-	return dataSourceProjects{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type dataSourceProjects struct {
-	p provider
-}
-
-func (d dataSourceProjects) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
-	var diags diag.Diagnostics
-
+func (d *dataSourceProjects) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	request := projects.SearchRequest{}
 
 	response, err := d.p.client.Projects.SearchAll(request)
@@ -77,16 +70,16 @@ func (d dataSourceProjects) Read(ctx context.Context, req tfsdk.ReadDataSourceRe
 	allProjects := make([]Project, len(response.Components))
 	for i, component := range response.Components {
 		allProjects[i] = Project{
-			ID:         types.String{Value: component.Name},
-			Name:       types.String{Value: component.Name},
-			Key:        types.String{Value: component.Key},
-			Visibility: types.String{Value: component.Visibility},
+			ID:         types.StringValue(component.Name),
+			Name:       types.StringValue(component.Name),
+			Key:        types.StringValue(component.Key),
+			Visibility: types.StringValue(component.Visibility),
 		}
 	}
 	result.Projects = allProjects
-	result.ID = types.String{Value: d.p.organization}
+	result.ID = types.StringValue(d.p.organization)
 
-	diags = resp.State.Set(ctx, result)
+	diags := resp.State.Set(ctx, result)
 
 	resp.Diagnostics.Append(diags...)
 }
