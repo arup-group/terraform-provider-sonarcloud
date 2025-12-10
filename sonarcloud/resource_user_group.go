@@ -6,57 +6,51 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"math/big"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/user_groups"
 )
 
-type resourceUserGroupType struct{}
+type resourceUserGroup struct {
+	p *sonarcloudProvider
+}
 
-func (r resourceUserGroupType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ resource.Resource = &resourceUserGroup{}
+var _ resource.ResourceWithImportState = &resourceUserGroup{}
+
+func (r *resourceUserGroup) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_user_group"
+}
+
+func (r *resourceUserGroup) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This resource manages a user group.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:     types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"name": {
-				Type:        types.StringType,
+			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the user group.",
 			},
-			"description": {
-				Type:        types.StringType,
+			"description": schema.StringAttribute{
 				Optional:    true,
 				Description: "The description for the user group.",
 			},
-			"default": {
-				Type:        types.BoolType,
+			"default": schema.BoolAttribute{
 				Computed:    true,
 				Description: "Whether the group is the default group or not.",
 			},
-			"members_count": {
-				Type:        types.NumberType,
+			"members_count": schema.NumberAttribute{
 				Computed:    true,
 				Description: "The number of members this group has.",
 			},
 		},
-	}, nil
+	}
 }
 
-func (r resourceUserGroupType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceUserGroup{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type resourceUserGroup struct {
-	p provider
-}
-
-func (r resourceUserGroup) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *resourceUserGroup) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
@@ -76,8 +70,8 @@ func (r resourceUserGroup) Create(ctx context.Context, req tfsdk.CreateResourceR
 
 	// Fill in api action struct
 	request := user_groups.CreateRequest{
-		Name:         plan.Name.Value,
-		Description:  plan.Description.Value,
+		Name:         plan.Name.ValueString(),
+		Description:  plan.Description.ValueString(),
 		Organization: r.p.organization,
 	}
 
@@ -91,18 +85,18 @@ func (r resourceUserGroup) Create(ctx context.Context, req tfsdk.CreateResourceR
 	}
 
 	var result = Group{
-		Default:      types.Bool{Value: res.Group.Default},
-		Description:  types.String{Value: res.Group.Description},
-		ID:           types.String{Value: big.NewFloat(res.Group.Id).String()},
-		MembersCount: types.Number{Value: big.NewFloat(res.Group.MembersCount)},
-		Name:         types.String{Value: res.Group.Name},
+		Default:      types.BoolValue(res.Group.Default),
+		Description:  types.StringValue(res.Group.Description),
+		ID:           types.StringValue(big.NewFloat(res.Group.Id).String()),
+		MembersCount: types.NumberValue(big.NewFloat(res.Group.MembersCount)),
+		Name:         types.StringValue(res.Group.Name),
 	}
 	diags = resp.State.Set(ctx, result)
 
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r resourceUserGroup) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *resourceUserGroup) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Retrieve values from state
 	var state Group
 	diags := req.State.Get(ctx, &state)
@@ -113,7 +107,7 @@ func (r resourceUserGroup) Read(ctx context.Context, req tfsdk.ReadResourceReque
 
 	// Fill in api action struct
 	request := user_groups.SearchRequest{
-		Q: state.Name.Value,
+		Q: state.Name.ValueString(),
 	}
 
 	response, err := r.p.client.UserGroups.SearchAll(request)
@@ -126,7 +120,7 @@ func (r resourceUserGroup) Read(ctx context.Context, req tfsdk.ReadResourceReque
 	}
 
 	// Check if the resource exists the list of retrieved resources
-	if result, ok := findGroup(response, state.Name.Value); ok {
+	if result, ok := findGroup(response, state.Name.ValueString()); ok {
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	} else {
@@ -134,7 +128,7 @@ func (r resourceUserGroup) Read(ctx context.Context, req tfsdk.ReadResourceReque
 	}
 }
 
-func (r resourceUserGroup) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *resourceUserGroup) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Retrieve values from state
 	var state Group
 	diags := req.State.Get(ctx, &state)
@@ -159,14 +153,14 @@ func (r resourceUserGroup) Update(ctx context.Context, req tfsdk.UpdateResourceR
 	// Fill in api action struct
 	// Note: we skip values that have not been changed
 	request := user_groups.UpdateRequest{
-		Id: state.ID.Value,
+		Id: state.ID.ValueString(),
 	}
 
 	if _, ok := changed["name"]; ok {
-		request.Name = plan.Name.Value
+		request.Name = plan.Name.ValueString()
 	}
 	if _, ok := changed["description"]; ok {
-		request.Description = plan.Description.Value
+		request.Description = plan.Description.ValueString()
 	}
 
 	err := r.p.client.UserGroups.Update(request)
@@ -192,13 +186,13 @@ func (r resourceUserGroup) Update(ctx context.Context, req tfsdk.UpdateResourceR
 	}
 
 	// Check if the resource exists the list of retrieved resources
-	if result, ok := findGroup(response, plan.Name.Value); ok {
+	if result, ok := findGroup(response, plan.Name.ValueString()); ok {
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	}
 }
 
-func (r resourceUserGroup) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *resourceUserGroup) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
 	var state Group
 	diags := req.State.Get(ctx, &state)
@@ -208,7 +202,7 @@ func (r resourceUserGroup) Delete(ctx context.Context, req tfsdk.DeleteResourceR
 	}
 
 	request := user_groups.DeleteRequest{
-		Id: state.ID.Value,
+		Id: state.ID.ValueString(),
 	}
 
 	err := r.p.client.UserGroups.Delete(request)
@@ -223,6 +217,6 @@ func (r resourceUserGroup) Delete(ctx context.Context, req tfsdk.DeleteResourceR
 	resp.State.RemoveResource(ctx)
 }
 
-func (r resourceUserGroup) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStatePassthroughID(ctx, path.Root("name"), req, resp)
+func (r *resourceUserGroup) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
 }
