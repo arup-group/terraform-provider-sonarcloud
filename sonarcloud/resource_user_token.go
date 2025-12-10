@@ -4,59 +4,55 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/user_tokens"
 )
 
-type resourceUserTokenType struct{}
+type resourceUserToken struct {
+	p *sonarcloudProvider
+}
 
-func (r resourceUserTokenType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ resource.Resource = &resourceUserToken{}
+
+func (r *resourceUserToken) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_user_token"
+}
+
+func (r *resourceUserToken) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This resource manages the tokens for a user.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:     types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"login": {
-				Type:        types.StringType,
+			"login": schema.StringAttribute{
 				Required:    true,
 				Description: "The login of the user to which the token should be added. This should be the same user as configured in the provider.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"name": {
-				Type:        types.StringType,
+			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the token.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"token": {
-				Type:        types.StringType,
+			"token": schema.StringAttribute{
 				Description: "The value of the generated token.",
 				Computed:    true,
 				Sensitive:   true,
 			},
 		},
-	}, nil
+	}
 }
 
-func (r resourceUserTokenType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceUserToken{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type resourceUserToken struct {
-	p provider
-}
-
-func (r resourceUserToken) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *resourceUserToken) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
@@ -76,8 +72,8 @@ func (r resourceUserToken) Create(ctx context.Context, req tfsdk.CreateResourceR
 
 	// Fill in api action struct
 	request := user_tokens.GenerateRequest{
-		Login: plan.Login.Value,
-		Name:  plan.Name.Value,
+		Login: plan.Login.ValueString(),
+		Name:  plan.Name.ValueString(),
 	}
 
 	res, err := r.p.client.UserTokens.Generate(request)
@@ -90,17 +86,17 @@ func (r resourceUserToken) Create(ctx context.Context, req tfsdk.CreateResourceR
 	}
 
 	var result = Token{
-		ID:    types.String{Value: res.Name},
-		Login: types.String{Value: res.Login},
-		Name:  types.String{Value: res.Name},
-		Token: types.String{Value: res.Token},
+		ID:    types.StringValue(res.Name),
+		Login: types.StringValue(res.Login),
+		Name:  types.StringValue(res.Name),
+		Token: types.StringValue(res.Token),
 	}
 	diags = resp.State.Set(ctx, result)
 
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r resourceUserToken) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *resourceUserToken) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Retrieve values from state
 	var state Token
 	diags := req.State.Get(ctx, &state)
@@ -111,7 +107,7 @@ func (r resourceUserToken) Read(ctx context.Context, req tfsdk.ReadResourceReque
 
 	// Fill in api action struct
 	request := user_tokens.SearchRequest{
-		Login: state.Login.Value,
+		Login: state.Login.ValueString(),
 	}
 
 	response, err := r.p.client.UserTokens.Search(request)
@@ -124,7 +120,7 @@ func (r resourceUserToken) Read(ctx context.Context, req tfsdk.ReadResourceReque
 	}
 
 	// Check if the resource exists the list of retrieved resources
-	if tokenExists(response, state.Name.Value) {
+	if tokenExists(response, state.Name.ValueString()) {
 		// We cannot read the token value, so just write back the original state
 		diags = resp.State.Set(ctx, state)
 		resp.Diagnostics.Append(diags...)
@@ -133,11 +129,11 @@ func (r resourceUserToken) Read(ctx context.Context, req tfsdk.ReadResourceReque
 	}
 }
 
-func (r resourceUserToken) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *resourceUserToken) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// NOOP, we always need to recreate
 }
 
-func (r resourceUserToken) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *resourceUserToken) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
 	var state Token
 	diags := req.State.Get(ctx, &state)
@@ -147,8 +143,8 @@ func (r resourceUserToken) Delete(ctx context.Context, req tfsdk.DeleteResourceR
 	}
 
 	request := user_tokens.RevokeRequest{
-		Login: state.Login.Value,
-		Name:  state.Name.Value,
+		Login: state.Login.ValueString(),
+		Name:  state.Name.ValueString(),
 	}
 
 	err := r.p.client.UserTokens.Revoke(request)

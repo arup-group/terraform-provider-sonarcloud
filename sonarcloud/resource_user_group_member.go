@@ -6,53 +6,51 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/reinoudk/go-sonarcloud/sonarcloud/user_groups"
 )
 
-type resourceUserGroupMemberType struct{}
+type resourceUserGroupMember struct {
+	p *sonarcloudProvider
+}
 
-func (r resourceUserGroupMemberType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+var _ resource.Resource = &resourceUserGroupMember{}
+var _ resource.ResourceWithImportState = &resourceUserGroupMember{}
+
+func (r *resourceUserGroupMember) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_user_group_member"
+}
+
+func (r *resourceUserGroupMember) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		Description: "This resource manages a single member of a user group.",
-		Attributes: map[string]tfsdk.Attribute{
-			"id": {
-				Type:     types.StringType,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"group": {
-				Type:        types.StringType,
+			"group": schema.StringAttribute{
 				Optional:    true,
 				Description: "The name of the group to which the user should be added.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"login": {
-				Type:        types.StringType,
+			"login": schema.StringAttribute{
 				Required:    true,
 				Description: "The login of the user that should be added to the group.",
-				PlanModifiers: tfsdk.AttributePlanModifiers{
-					tfsdk.RequiresReplace(),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 		},
-	}, nil
+	}
 }
 
-func (r resourceUserGroupMemberType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	return resourceUserGroupMember{
-		p: *(p.(*provider)),
-	}, nil
-}
-
-type resourceUserGroupMember struct {
-	p provider
-}
-
-func (r resourceUserGroupMember) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *resourceUserGroupMember) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
@@ -72,8 +70,8 @@ func (r resourceUserGroupMember) Create(ctx context.Context, req tfsdk.CreateRes
 
 	// Fill in api action struct
 	request := user_groups.AddUserRequest{
-		Login:        plan.Login.Value,
-		Name:         plan.Group.Value,
+		Login:        plan.Login.ValueString(),
+		Name:         plan.Group.ValueString(),
 		Organization: r.p.organization,
 	}
 
@@ -88,13 +86,13 @@ func (r resourceUserGroupMember) Create(ctx context.Context, req tfsdk.CreateRes
 
 	// We have no response, assume the values were set when no error has been returned and just set ID
 	state := plan
-	state.ID = types.String{Value: fmt.Sprintf("%s%s", plan.Group.Value, plan.Login.Value)}
+	state.ID = types.StringValue(fmt.Sprintf("%s%s", plan.Group.ValueString(), plan.Login.ValueString()))
 	diags = resp.State.Set(ctx, state)
 
 	resp.Diagnostics.Append(diags...)
 }
 
-func (r resourceUserGroupMember) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *resourceUserGroupMember) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Retrieve values from state
 	var state GroupMember
 	diags := req.State.Get(ctx, &state)
@@ -105,8 +103,8 @@ func (r resourceUserGroupMember) Read(ctx context.Context, req tfsdk.ReadResourc
 
 	// Fill in api action struct
 	request := user_groups.UsersRequest{
-		Q:    state.Login.Value,
-		Name: state.Group.Value,
+		Q:    state.Login.ValueString(),
+		Name: state.Group.ValueString(),
 	}
 
 	response, err := r.p.client.UserGroups.UsersAll(request)
@@ -119,7 +117,7 @@ func (r resourceUserGroupMember) Read(ctx context.Context, req tfsdk.ReadResourc
 	}
 
 	// Check if the resource exists the list of retrieved resources
-	if result, ok := findGroupMember(response, state.Group.Value, state.Login.Value); ok {
+	if result, ok := findGroupMember(response, state.Group.ValueString(), state.Login.ValueString()); ok {
 		diags = resp.State.Set(ctx, result)
 		resp.Diagnostics.Append(diags...)
 	} else {
@@ -127,11 +125,11 @@ func (r resourceUserGroupMember) Read(ctx context.Context, req tfsdk.ReadResourc
 	}
 }
 
-func (r resourceUserGroupMember) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *resourceUserGroupMember) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// NOOP, we always need to recreate
 }
 
-func (r resourceUserGroupMember) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *resourceUserGroupMember) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Retrieve values from state
 	var state GroupMember
 	diags := req.State.Get(ctx, &state)
@@ -142,8 +140,8 @@ func (r resourceUserGroupMember) Delete(ctx context.Context, req tfsdk.DeleteRes
 
 	// Fill in api action struct
 	request := user_groups.RemoveUserRequest{
-		Login:        state.Login.Value,
-		Name:         state.Group.Value,
+		Login:        state.Login.ValueString(),
+		Name:         state.Group.ValueString(),
 		Organization: r.p.organization,
 	}
 
@@ -159,7 +157,7 @@ func (r resourceUserGroupMember) Delete(ctx context.Context, req tfsdk.DeleteRes
 	resp.State.RemoveResource(ctx)
 }
 
-func (r resourceUserGroupMember) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
+func (r *resourceUserGroupMember) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	idParts := strings.Split(req.ID, ",")
 	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
 		resp.Diagnostics.AddError(
