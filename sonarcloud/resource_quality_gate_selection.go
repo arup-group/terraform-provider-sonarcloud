@@ -66,11 +66,19 @@ func (r *resourceQualityGateSelection) Create(ctx context.Context, req resource.
 		return
 	}
 
-	for _, s := range plan.ProjectKeys.Elems {
+	// Extract project keys from Set
+	var projectKeys []string
+	diags = plan.ProjectKeys.ElementsAs(ctx, &projectKeys, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for _, projectKey := range projectKeys {
 		// Fill in api action struct for Quality Gates
 		request := qualitygates.SelectRequest{
-			GateId:       plan.GateId.ValueString()String(),
-			ProjectKey:   s.(types.String).Value,
+			GateId:       plan.GateId.ValueString(),
+			ProjectKey:   projectKey,
 			Organization: r.p.organization,
 		}
 		err := r.p.client.Qualitygates.Select(request)
@@ -85,7 +93,7 @@ func (r *resourceQualityGateSelection) Create(ctx context.Context, req resource.
 
 	// Query for selection
 	searchRequest := qualitygates.SearchRequest{
-		GateId:       plan.GateId.ValueString()String(),
+		GateId:       plan.GateId.ValueString(),
 		Organization: r.p.organization,
 	}
 
@@ -98,7 +106,7 @@ func (r *resourceQualityGateSelection) Create(ctx context.Context, req resource.
 		return
 	}
 
-	if result, ok := findSelection(res, plan.ProjectKeys.Elems); ok {
+	if result, ok := findSelection(res, projectKeys); ok {
 		result.GateId = types.StringValue(plan.GateId.ValueString())
 		result.ID = types.StringValue(plan.GateId.ValueString())
 		diags = resp.State.Set(ctx, result)
@@ -106,7 +114,7 @@ func (r *resourceQualityGateSelection) Create(ctx context.Context, req resource.
 	} else {
 		resp.Diagnostics.AddError(
 			"Could not find Quality Gate Selection",
-			fmt.Sprintf("The findSelection function was unable to find the project keys: %+v in the response: %+v", plan.ProjectKeys.Elems, res),
+			fmt.Sprintf("The findSelection function was unable to find the project keys: %+v in the response: %+v", projectKeys, res),
 		)
 		return
 	}
@@ -121,7 +129,7 @@ func (r *resourceQualityGateSelection) Read(ctx context.Context, req resource.Re
 	}
 
 	searchRequest := qualitygates.SearchRequest{
-		GateId:       state.GateId.ValueString()String(),
+		GateId:       state.GateId.ValueString(),
 		Organization: r.p.organization,
 	}
 	res, err := r.p.client.Qualitygates.Search(searchRequest)
@@ -175,7 +183,7 @@ func (r *resourceQualityGateSelection) Update(ctx context.Context, req resource.
 	}
 	for _, s := range sel {
 		selectRequest := qualitygates.SelectRequest{
-			GateId:       state.GateId.ValueString()String(),
+			GateId:       state.GateId.ValueString(),
 			Organization: r.p.organization,
 			ProjectKey:   s.(types.String).Value,
 		}
@@ -190,7 +198,7 @@ func (r *resourceQualityGateSelection) Update(ctx context.Context, req resource.
 	}
 
 	request := qualitygates.SearchRequest{
-		GateId:       plan.GateId.ValueString()String(),
+		GateId:       plan.GateId.ValueString(),
 		Organization: r.p.organization,
 	}
 	res, err := r.p.client.Qualitygates.Search(request)
