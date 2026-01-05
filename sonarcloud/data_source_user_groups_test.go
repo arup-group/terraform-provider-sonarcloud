@@ -2,12 +2,13 @@ package sonarcloud
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
 func TestAccDataSourceUserGroups(t *testing.T) {
-	numberOfDefaultGroups := "3"
+	numberOfDefaultGroups := "2"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },

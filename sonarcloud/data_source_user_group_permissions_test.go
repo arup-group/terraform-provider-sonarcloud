@@ -2,14 +2,15 @@ package sonarcloud
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"os"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
 func TestAccDataSourceUserGroupPermissions(t *testing.T) {
-	// This is the number of default groups (3) + the "Anyone" permission group (1)
-	numberOfDefaultPermissionGroups := "4"
+	// This is the number of default groups (3)
+	numberOfDefaultPermissionGroups := "3"
 	projectKey := os.Getenv("SONARCLOUD_PROJECT_KEY")
 
 	resource.Test(t, resource.TestCase{
