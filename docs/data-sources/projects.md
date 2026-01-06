@@ -36,5 +36,3 @@ Read-Only:
 - `id` (String) ID of the project. Equals to the project name.
 - `name` (String) The name of the project.
 - `visibility` (String) The visibility of the project.
-
-

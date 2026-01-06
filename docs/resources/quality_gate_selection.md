@@ -36,5 +36,3 @@ resource "sonarcloud_quality_gate_selection" "example_quality_gate_selection" {
 ### Read-Only
 
 - `id` (String) The implicit ID of the resource
-
-

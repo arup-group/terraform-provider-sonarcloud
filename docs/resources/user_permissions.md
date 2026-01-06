@@ -34,6 +34,8 @@ This resource manages the permissions of a user for the whole organization or a 
 
 Import is supported using the following syntax:
 
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+
 ```shell
 #!/bin/sh
 # import user permissions for the whole organization using <login>

@@ -40,6 +40,8 @@ resource "sonarcloud_project_main_branch" "main" {
 
 Import is supported using the following syntax:
 
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+
 ```shell
 #!/bin/sh
 # import a project main branch using <branch name>,<project_key>
