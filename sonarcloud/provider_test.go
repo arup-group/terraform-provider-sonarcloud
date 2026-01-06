@@ -1,6 +1,7 @@
 package sonarcloud
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -38,7 +39,7 @@ func testAccPreCheck(t *testing.T) {
 	if _, err := os.Stat(envFile); err == nil {
 		err := godotenv.Load(envFile)
 		if err != nil {
-			errMsg := "Could not load .env" + envFile + " file from repo root: " + err.Error()
+			errMsg := fmt.Sprintf("Could not load .env file %s from repo root: %v", envFile, err)
 			t.Error(errMsg)
 			t.Fatal("Error loading .env file from repo root")
 		}
