@@ -17,8 +17,15 @@ jobs:
     - uses: actions/setup-go@v6.1.0
       with:
         go-version: '1.24'
-    - name: Unit tests
-      run: make test
+    - name: Unit tests (with coverage)
+      run: make test-coverage
+    - name: Upload coverage to Codecov (unit)
+      uses: codecov/codecov-action@v5
+      with:
+        files: ./coverage/unit/coverage.out
+        flags: unit
+        fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }}
   acceptance-tests:
     runs-on: ubuntu-24.04
     concurrency: acceptance-tests
@@ -28,8 +35,8 @@ jobs:
     - uses: actions/setup-go@v6.1.0
       with:
         go-version: '1.24'
-    - name: Acceptance tests
-      run: make testacc
+    - name: Acceptance tests (with coverage)
+      run: make testacc-coverage
       env:
         TF_ACC: "true"
         SONARCLOUD_ORGANIZATION: ${{ secrets.ACC_TEST_SONARCLOUD_ORGANIZATION }}
@@ -40,3 +47,10 @@ jobs:
         SONARCLOUD_PROJECT_KEY: ${{ secrets.ACC_TEST_SONARCLOUD_PROJECT_KEY }}
         SONARCLOUD_QUALITY_GATE_NAME: ${{ secrets.ACC_TEST_SONARCLOUD_QUALITY_GATE_NAME }}
         SONARCLOUD_QUALITY_GATE_ID: ${{ secrets.ACC_TEST_SONARCLOUD_QUALITY_GATE_ID }}
+    - name: Upload coverage to Codecov (acceptance)
+      uses: codecov/codecov-action@v5
+      with:
+        files: ./coverage/acceptance/coverage.out
+        flags: acceptance
+        fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }}

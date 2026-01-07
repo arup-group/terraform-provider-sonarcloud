@@ -1,4 +1,7 @@
-TESTARGS?=$$(go list ./... | grep -v 'vendor')
+# Package list and test args
+TESTARGS?=
+PKGS?=$$(go list ./... | grep -v 'vendor')
+
 HOSTNAME=arup.com
 NAMESPACE=platform
 NAME=sonarcloud
@@ -11,6 +14,15 @@ ifneq (,$(wildcard .env))
     export
 endif
 
+# Coverage and test flag configuration (centralized to avoid drift)
+COVER?=
+COVER_DIR=coverage
+UNIT_COVER_PROFILE=$(COVER_DIR)/unit/coverage.out
+ACC_COVER_PROFILE=$(COVER_DIR)/acceptance/coverage.out
+BASE_UNIT_FLAGS?=-timeout=30s -parallel=4
+BASE_ACC_FLAGS?=-timeout 120m -p 1 -v
+COVER_FLAGS?=-covermode=atomic -coverpkg=./...
+
 default: install
 
 build:
@@ -21,11 +33,28 @@ install: build
 	mv $(BINARY_GLOB) ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 
 test:
-	go test -i $(TEST) || exit 1
-	echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
+	@if [ "$(COVER)" = "1" ]; then \
+		mkdir -p $(COVER_DIR)/unit; \
+		go test $(BASE_UNIT_FLAGS) $(TESTARGS) $(COVER_FLAGS) -coverprofile=$(UNIT_COVER_PROFILE) $(PKGS); \
+	else \
+		go test $(BASE_UNIT_FLAGS) $(TESTARGS) $(PKGS); \
+	fi
+
+# Convenience target for unit test coverage
+test-coverage:
+	COVER=1 $(MAKE) test
 
 testacc:
-	TF_ACC=1 go test -p 1 $(TEST) -v $(TESTARGS) -timeout 120m
+	@if [ "$(COVER)" = "1" ]; then \
+		mkdir -p $(COVER_DIR)/acceptance; \
+		TF_ACC=1 go test $(BASE_ACC_FLAGS) $(TESTARGS) $(COVER_FLAGS) -coverprofile=$(ACC_COVER_PROFILE) $(PKGS); \
+	else \
+		TF_ACC=1 go test $(BASE_ACC_FLAGS) $(TESTARGS) $(PKGS); \
+	fi
+
+# Convenience target for acceptance test coverage
+testacc-coverage:
+	COVER=1 $(MAKE) testacc
 
 debug-test:
 	TF_ACC=true dlv test ./sonarcloud

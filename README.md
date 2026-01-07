@@ -1,5 +1,9 @@
 # Terraform Provider SonarCloud
 
+[![codecov](https://codecov.io/gh/arup-group/terraform-provider-sonarcloud/graph/badge.svg)](https://codecov.io/gh/arup-group/terraform-provider-sonarcloud)
+[![Go Report Card](https://goreportcard.com/badge/github.com/arup-group/terraform-provider-sonarcloud)](https://goreportcard.com/report/github.com/arup-group/terraform-provider-sonarcloud)
+[![License](https://img.shields.io/github/license/arup-group/terraform-provider-sonarcloud)](https://github.com/arup-group/terraform-provider-sonarcloud/blob/main/LICENSE)
+
 A Terraform provider for managing SonarCloud user groups and their permissions.
 
 ## Requirements
