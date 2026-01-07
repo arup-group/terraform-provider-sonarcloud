@@ -2,7 +2,7 @@
 default_stages: [pre-commit]
 repos:
 - repo: https://github.com/gruntwork-io/pre-commit
-  rev: v0.1.30
+  rev: 40f924cd642f5dc98d12bd97b07f3752223553da  # frozen: v0.1.30
   hooks:
   - id: terraform-fmt
   - id: gofmt
@@ -14,7 +14,7 @@ repos:
     pass_filenames: false
     entry: make docs-check
 - repo: https://github.com/python-jsonschema/check-jsonschema
-  rev: 0.36.0
+  rev: b035497fb64e3f9faa91e833331688cc185891e6  # frozen: 0.36.0
   hooks:
   - id: check-github-actions
     additional_dependencies:
@@ -23,34 +23,34 @@ repos:
     additional_dependencies:
     - pip_system_certs==4.0
 - repo: https://github.com/google/yamlfmt
-  rev: v0.21.0
+  rev: b5ca1890231d5e1e5181fef75a1be609d1e25029  # frozen: v0.21.0
   hooks:
   - id: yamlfmt
 # The markdown-link-check can't access internal or private repos, see
 # .markdown_link_check_config.json on how to exclude patterns
 - repo: https://github.com/tcort/markdown-link-check
-  rev: v3.14.2
+  rev: ffc61540dea52bad1c41cfeedcf26c53ad9447ba  # frozen: v3.14.2
   hooks:
   - id: markdown-link-check
     args: [--quiet, --config=.markdown_link_check_config.json]
     stages: [pre-commit]
 - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
-  rev: v1.7.10.24
+  rev: 85c37735ea69e5baf0681530e57e63deee0ce733  # frozen: v1.7.10.24
   hooks:
   - id: actionlint
     additional_dependencies: [pyflakes>=3.0.1, shellcheck-py>=0.9.0.5]
 - repo: https://github.com/shellcheck-py/shellcheck-py
-  rev: v0.11.0.1
+  rev: 745eface02aef23e168a8afb6b5737818efbea95  # frozen: v0.11.0.1
   hooks:
   - id: shellcheck
 - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
-  rev: 3.6.0
+  rev: 11ea70506fd878d26129b2b87746fd1a1f6b561b  # frozen: 3.6.0
   hooks:
   - id: editorconfig-checker
     alias: ec
 # this should go last since it will fix line endings broken by other tools
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v6.0.0
+  rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
   hooks:
   - id: no-commit-to-branch
     args: [--branch, main]
