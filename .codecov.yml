@@ -1,0 +1,26 @@
+---
+codecov:
+  require_ci_to_pass: true
+  notify:
+    after_n_builds: 2
+
+coverage:
+  precision: 2
+  range: 50..90
+  round: down
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+flag_management:
+  default_rules:  # the rules that will be followed for any flag added, generally
+    statuses:
+    - type: project
+      target: auto
+      threshold: 1%
