@@ -2,7 +2,7 @@
 default_stages: [pre-commit]
 repos:
 - repo: https://github.com/gruntwork-io/pre-commit
-  rev: v0.1.29
+  rev: v0.1.30
   hooks:
   - id: terraform-fmt
   - id: gofmt
@@ -14,7 +14,7 @@ repos:
     pass_filenames: false
     entry: make docs-check
 - repo: https://github.com/python-jsonschema/check-jsonschema
-  rev: 0.33.0
+  rev: 0.36.0
   hooks:
   - id: check-github-actions
     additional_dependencies:
@@ -23,34 +23,34 @@ repos:
     additional_dependencies:
     - pip_system_certs==4.0
 - repo: https://github.com/google/yamlfmt
-  rev: v0.16.0
+  rev: v0.21.0
   hooks:
   - id: yamlfmt
 # The markdown-link-check can't access internal or private repos, see
 # .markdown_link_check_config.json on how to exclude patterns
 - repo: https://github.com/tcort/markdown-link-check
-  rev: v3.13.7
+  rev: v3.14.2
   hooks:
   - id: markdown-link-check
     args: [--quiet, --config=.markdown_link_check_config.json]
     stages: [pre-commit]
 - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
-  rev: v1.7.7.23
+  rev: v1.7.10.24
   hooks:
   - id: actionlint
     additional_dependencies: [pyflakes>=3.0.1, shellcheck-py>=0.9.0.5]
 - repo: https://github.com/shellcheck-py/shellcheck-py
-  rev: v0.10.0.1
+  rev: v0.11.0.1
   hooks:
   - id: shellcheck
 - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
-  rev: 3.2.1
+  rev: 3.6.0
   hooks:
   - id: editorconfig-checker
     alias: ec
 # this should go last since it will fix line endings broken by other tools
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
+  rev: v6.0.0
   hooks:
   - id: no-commit-to-branch
     args: [--branch, main]
