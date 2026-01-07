@@ -65,7 +65,7 @@ func TestAccUserPermissions(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("sonarcloud_user_permissions.test_permission", "project_key", projectKey),
 					resource.TestCheckResourceAttr("sonarcloud_user_permissions.test_permission", "login", login),
-					resource.TestCheckResourceAttr("sonarcloud_user_permissions.test_permission", "permissions.0", "admin1"),
+					resource.TestCheckResourceAttr("sonarcloud_user_permissions.test_permission", "permissions.0", "admin"),
 				),
 			},
 			userPermissionsImportCheck("sonarcloud_user_permissions.test_permission", login, projectKey),
