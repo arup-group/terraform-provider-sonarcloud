@@ -9,8 +9,14 @@ repos:
 - repo: https://github.com/golangci/golangci-lint
   rev: v2.2.0  # frozen: v2.2.0
   hooks:
+  # Use golangci-lint for local development (only checks modified files)
+  # For CI, override with: pre-commit run golangci-lint-full --all-files
   - id: golangci-lint
     args: [--config=.golangci.yml]
+  # Use golangci-lint-full in CI to check all files
+  - id: golangci-lint-full
+    args: [--config=.golangci.yml]
+    stages: [manual]
 - repo: local
   hooks:
   - id: update-docs

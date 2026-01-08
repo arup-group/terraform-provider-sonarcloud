@@ -23,9 +23,9 @@ func TestAccDataSourceUserGroupMembers(t *testing.T) {
 }
 
 func testAccDataSourceUserGroupMembersConfig() string {
-	return fmt.Sprintf(`
+	return `
 data "sonarcloud_user_group_members" "test_members" {
 	group = "Members"
 }
-`)
+`
 }

@@ -25,7 +25,7 @@ func TestAccDataSourceProjects(t *testing.T) {
 }
 
 func testAccDataSourceProjectsConfig() string {
-	return fmt.Sprintf(`
+	return `
 data "sonarcloud_projects" "test_projects" {}
-`)
+`
 }

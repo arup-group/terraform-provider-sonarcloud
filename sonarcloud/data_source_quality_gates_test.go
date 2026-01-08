@@ -5,7 +5,7 @@ import (
 )
 
 func testAccDataSourceQualityGatesConfig() string {
-	return fmt.Sprintf(`
+	return `
 data "sonarcloud_quality_gates" "test_quality_gates" {}
-`)
+`
 }
