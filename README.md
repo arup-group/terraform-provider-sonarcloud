@@ -39,7 +39,7 @@ This project uses [golangci-lint](https://golangci-lint.run/) to enforce Go codi
 
 The repository is configured with [pre-commit](https://pre-commit.com/) hooks that automatically run checks before each commit:
 
-1. Install pre-commit: `pip install pre-commit`
+1. Install pre-commit: `uv tool install pre-commit`
 2. Install the git hooks: `pre-commit install`
 3. (Optional) Run against all files: `pre-commit run --all-files`
 

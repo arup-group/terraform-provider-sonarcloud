@@ -7,7 +7,7 @@ repos:
   - id: terraform-fmt
   - id: gofmt
 - repo: https://github.com/golangci/golangci-lint
-  rev: v2.2.0  # frozen: v2.2.0
+  rev: v2.2.0
   hooks:
   # Use golangci-lint for local development (only checks modified files)
   # For CI, override with: pre-commit run golangci-lint-full --all-files
