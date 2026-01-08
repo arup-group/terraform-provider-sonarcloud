@@ -20,7 +20,7 @@ COVER_DIR=coverage
 UNIT_COVER_PROFILE=$(COVER_DIR)/unit/coverage.out
 ACC_COVER_PROFILE=$(COVER_DIR)/acceptance/coverage.out
 BASE_UNIT_FLAGS?=-timeout=30s -parallel=4
-BASE_ACC_FLAGS?=-timeout 120m -p 1 -v
+BASE_ACC_FLAGS?=-timeout 10m -p 1 -v
 COVER_FLAGS?=-covermode=atomic -coverpkg=./...
 
 default: install

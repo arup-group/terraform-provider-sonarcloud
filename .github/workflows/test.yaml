@@ -10,6 +10,7 @@ permissions:
   contents: read
 jobs:
   test:
+    timeout-minutes: 5
     runs-on: ubuntu-24.04
     steps:
     - name: Checkout
@@ -27,6 +28,7 @@ jobs:
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}
   acceptance-tests:
+    timeout-minutes: 10
     runs-on: ubuntu-24.04
     concurrency: acceptance-tests
     steps:
