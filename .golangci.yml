@@ -1,0 +1,30 @@
+version: 2
+
+run:
+  timeout: 5m
+  go: '1.24'
+
+linters:
+  enable:
+    - govet        # Vet examines Go source code and reports suspicious constructs
+    - errcheck     # Errcheck is a program for checking for unchecked errors in go programs
+    - staticcheck  # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
+    - unused       # Checks Go code for unused constants, variables, functions and types
+    - revive       # Fast, configurable, extensible, flexible, and beautiful linter for Go (drop-in replacement of golint)
+
+linters-settings:
+  revive:
+    rules:
+      - name: var-naming
+        severity: warning
+        disabled: false
+        arguments:
+          - ["ID"] # Allow ID as uppercase
+      - name: exported
+        severity: warning
+        disabled: false
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

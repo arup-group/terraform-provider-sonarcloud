@@ -6,6 +6,11 @@ repos:
   hooks:
   - id: terraform-fmt
   - id: gofmt
+- repo: https://github.com/golangci/golangci-lint
+  rev: v2.2.0  # frozen: v2.2.0
+  hooks:
+  - id: golangci-lint
+    args: [--config=.golangci.yml]
 - repo: local
   hooks:
   - id: update-docs
