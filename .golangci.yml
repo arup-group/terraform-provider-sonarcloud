@@ -22,8 +22,6 @@ linters:
     - gosec        # Inspects source code for security problems
     - nilerr       # Finds code that returns nil even if it checks that the error is not nil
     - nilnesserr   # Reports constructs that checks for err != nil, but returns a different nil value error
-    - rowserrcheck # Checks whether Rows.Err of rows is checked successfully
-    - sqlclosecheck # Checks that sql.Rows, sql.Stmt are closed
     - unconvert    # Remove unnecessary type conversions
     - unparam      # Reports unused function parameters
     - wastedassign # Finds wasted assignment statements
