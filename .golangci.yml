@@ -55,7 +55,7 @@ linters-settings:
         severity: warning
         disabled: false
         arguments:
-          - ["ID", "URL"] # Allow ID and URL as uppercase
+          - ["ID", "URL", "HTTP", "API", "JSON", "XML", "HTML", "SQL"] # Allow common Go acronyms as uppercase
       - name: exported
         severity: warning
         disabled: false
@@ -72,10 +72,10 @@ linters-settings:
       - commentedOutCode
   
   gocyclo:
-    min-complexity: 15
+    min-complexity: 15  # Reasonable threshold - functions above this should be refactored
   
   gocognit:
-    min-complexity: 30
+    min-complexity: 30  # Higher threshold as cognitive complexity is stricter than cyclomatic
   
   gosec:
     excludes:
