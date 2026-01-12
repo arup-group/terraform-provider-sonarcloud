@@ -331,10 +331,12 @@ func (r resourceUserPermissions) ImportState(ctx context.Context, req tfsdk.Impo
 	}
 }
 
+// UserPermissionsSearchRequest represents a search request for user permissions.
 type UserPermissionsSearchRequest struct {
 	ProjectKey string
 }
 
+// UserPermissionsSearchResponseUser represents a user in the permissions search response.
 type UserPermissionsSearchResponseUser struct {
 	Id          string   `json:"id,omitempty"` //nolint:revive // Field name matches API response
 	Login       string   `json:"login,omitempty"`

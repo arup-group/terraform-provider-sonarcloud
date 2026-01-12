@@ -326,10 +326,12 @@ func (r resourceUserGroupPermissions) ImportState(ctx context.Context, req tfsdk
 	}
 }
 
+// UserGroupPermissionsSearchRequest represents a search request for user group permissions.
 type UserGroupPermissionsSearchRequest struct {
 	ProjectKey string
 }
 
+// UserGroupPermissionsSearchResponseGroup represents a user group in the permissions search response.
 type UserGroupPermissionsSearchResponseGroup struct {
 	Id          string   `json:"id,omitempty"` //nolint:revive // Field name matches API response
 	Name        string   `json:"name,omitempty"`
