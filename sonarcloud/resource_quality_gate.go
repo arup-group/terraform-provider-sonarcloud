@@ -160,9 +160,8 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 		}
 	}
 
-	conditionRequests := qualitygates.CreateConditionRequest{}
 	for _, conditionPlan := range plan.Conditions {
-		conditionRequests = qualitygates.CreateConditionRequest{
+		conditionRequests := qualitygates.CreateConditionRequest{
 			Error:        conditionPlan.Error.Value,
 			GateId:       fmt.Sprintf("%d", int(result.GateId.Value)),
 			Metric:       conditionPlan.Metric.Value,

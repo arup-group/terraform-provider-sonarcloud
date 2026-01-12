@@ -90,7 +90,7 @@ type dataSourceQualityGate struct {
 
 func (d dataSourceQualityGate) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
 	var config QualityGate
-	diags := req.Config.Get(ctx, &config)
+	_ = req.Config.Get(ctx, &config)
 	if resp.Diagnostics.HasError() {
 		return
 	}
