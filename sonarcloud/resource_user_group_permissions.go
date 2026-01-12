@@ -331,7 +331,7 @@ type UserGroupPermissionsSearchRequest struct {
 }
 
 type UserGroupPermissionsSearchResponseGroup struct {
-	Id          string   `json:"id,omitempty"`
+	Id          string   `json:"id,omitempty"` //nolint:revive // Field name matches API response
 	Name        string   `json:"name,omitempty"`
 	Description string   `json:"description,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`

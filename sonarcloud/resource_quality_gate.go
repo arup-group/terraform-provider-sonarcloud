@@ -489,25 +489,25 @@ func diffDefault(old, updated QualityGate) bool {
 }
 
 // Check if Quality Gate Conditions are different
-func diffConditions(old, new []Condition) (create, update, remove []Condition) {
+func diffConditions(old, updated []Condition) (create, updateList, remove []Condition) {
 	create = []Condition{}
 	remove = []Condition{}
-	update = []Condition{}
+	updateList = []Condition{}
 
-	for _, c := range new {
+	for _, c := range updated {
 		if !containsCondition(old, c) {
 			create = append(create, c)
 		} else {
-			update = append(update, c)
+			updateList = append(updateList, c)
 		}
 	}
 	for _, c := range old {
-		if !containsCondition(new, c) {
+		if !containsCondition(updated, c) {
 			remove = append(remove, c)
 		}
 	}
 
-	return create, update, remove
+	return create, updateList, remove
 }
 
 // Check if a condition is contained in a condition list

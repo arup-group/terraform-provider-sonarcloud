@@ -249,17 +249,17 @@ func (r resourceWebhook) ImportState(ctx context.Context, req tfsdk.ImportResour
 }
 
 // findWebhook returns the link with the given id, if it exists in the response
-func findWebhook(response *webhooks.ListResponse, key, project_key, secret string) (Webhook, bool) {
+func findWebhook(response *webhooks.ListResponse, key, projectKey, secret string) (Webhook, bool) {
 	var result Webhook
 	ok := false
 
-	// If project_key is an empty string, we need to explicitly set 'Null' to 'true' in the types.String struct.
+	// If projectKey is an empty string, we need to explicitly set 'Null' to 'true' in the types.String struct.
 	// Otherwise, it would be in an invalid state, which leads to potentially indeterminate behaviour.
 	// This is "fixed" in https://github.com/hashicorp/terraform-plugin-framework/pull/523 with explicit constructor
 	// functions that ensure a valid state.
 	// TODO: upgrade terraform provider framework dependency so we can use an explicit constructor
 	var projectKeyIsNull bool
-	if project_key == "" {
+	if projectKey == "" {
 		projectKeyIsNull = true
 	} else {
 		projectKeyIsNull = false
@@ -270,7 +270,7 @@ func findWebhook(response *webhooks.ListResponse, key, project_key, secret strin
 			result = Webhook{
 				ID:      types.String{Value: webhook.Key},
 				Key:     types.String{Value: webhook.Key},
-				Project: types.String{Value: project_key, Null: projectKeyIsNull},
+				Project: types.String{Value: projectKey, Null: projectKeyIsNull},
 				Name:    types.String{Value: webhook.Name},
 				// We have to use the secret from the plan, as it's not returned by the API
 				Secret: types.String{Value: secret},

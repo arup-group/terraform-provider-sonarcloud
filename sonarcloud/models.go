@@ -71,7 +71,7 @@ type Conditions struct {
 
 type QualityGate struct {
 	ID         types.String  `tfsdk:"id"`
-	GateId     types.Float64 `tfsdk:"gate_id"`
+	GateId     types.Float64 `tfsdk:"gate_id"` //nolint:revive // Field name matches Terraform schema
 	Conditions []Condition   `tfsdk:"conditions"`
 	IsBuiltIn  types.Bool    `tfsdk:"is_built_in"`
 	IsDefault  types.Bool    `tfsdk:"is_default"`
@@ -85,7 +85,7 @@ type QualityGates struct {
 
 type Selection struct {
 	ID          types.String `tfsdk:"id"`
-	GateId      types.String `tfsdk:"gate_id"`
+	GateId      types.String `tfsdk:"gate_id"` //nolint:revive // Field name matches Terraform schema
 	ProjectKeys types.Set    `tfsdk:"project_keys"`
 }
 
@@ -139,17 +139,17 @@ type DataProjectLinks struct {
 }
 
 type DataProjectLink struct {
-	Id   types.String `tfsdk:"id"`
+	Id   types.String `tfsdk:"id"` //nolint:revive // Field name matches Terraform schema
 	Name types.String `tfsdk:"name"`
 	Type types.String `tfsdk:"type"`
-	Url  types.String `tfsdk:"url"`
+	Url  types.String `tfsdk:"url"` //nolint:revive // Field name matches Terraform schema
 }
 
 type ProjectLink struct {
 	ID         types.String `tfsdk:"id"`
 	ProjectKey types.String `tfsdk:"project_key"`
 	Name       types.String `tfsdk:"name"`
-	Url        types.String `tfsdk:"url"`
+	Url        types.String `tfsdk:"url"` //nolint:revive // Field name matches Terraform schema
 }
 
 type DataWebhooks struct {
@@ -162,7 +162,7 @@ type DataWebhook struct {
 	Key       types.String `tfsdk:"key"`
 	Name      types.String `tfsdk:"name"`
 	HasSecret types.Bool   `tfsdk:"has_secret"`
-	Url       types.String `tfsdk:"url"`
+	Url       types.String `tfsdk:"url"` //nolint:revive // Field name matches Terraform schema
 }
 
 type Webhook struct {
@@ -171,5 +171,5 @@ type Webhook struct {
 	Project types.String `tfsdk:"project"`
 	Name    types.String `tfsdk:"name"`
 	Secret  types.String `tfsdk:"secret"`
-	Url     types.String `tfsdk:"url"`
+	Url     types.String `tfsdk:"url"` //nolint:revive // Field name matches Terraform schema
 }

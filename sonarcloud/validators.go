@@ -13,8 +13,8 @@ type stringLengthBetweenValidator struct {
 	Max int
 }
 
-func stringLengthBetween(min int, max int) *stringLengthBetweenValidator {
-	return &stringLengthBetweenValidator{Min: min, Max: max}
+func stringLengthBetween(minLen int, max int) *stringLengthBetweenValidator {
+	return &stringLengthBetweenValidator{Min: minLen, Max: max}
 }
 
 func (v stringLengthBetweenValidator) Description(ctx context.Context) string {
