@@ -58,7 +58,7 @@ func TestAccWebhook(t *testing.T) {
 	})
 }
 
-func testAccWebhookDestroy(s *terraform.State) error {
+func testAccWebhookDestroy(_ *terraform.State) error {
 	return nil
 }
 

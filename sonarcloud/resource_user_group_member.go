@@ -127,7 +127,7 @@ func (r resourceUserGroupMember) Read(ctx context.Context, req tfsdk.ReadResourc
 	}
 }
 
-func (r resourceUserGroupMember) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r resourceUserGroupMember) Update(_ context.Context, _ tfsdk.UpdateResourceRequest, _ *tfsdk.UpdateResourceResponse) {
 	// NOOP, we always need to recreate
 }
 

@@ -66,7 +66,7 @@ type dataSourceUserGroups struct {
 	p provider
 }
 
-func (d dataSourceUserGroups) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
+func (d dataSourceUserGroups) Read(ctx context.Context, _ tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
 	var diags diag.Diagnostics
 
 	request := user_groups.SearchRequest{}

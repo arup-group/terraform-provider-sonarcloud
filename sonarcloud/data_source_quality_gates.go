@@ -12,7 +12,7 @@ import (
 
 type dataSourceQualityGatesType struct{}
 
-func (d dataSourceQualityGatesType) GetSchema(__ context.Context) (tfsdk.Schema, diag.Diagnostics) {
+func (d dataSourceQualityGatesType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		Description: "This data source retrieves all Quality Gates for the configured organization.",
 		Attributes: map[string]tfsdk.Attribute{
@@ -99,7 +99,7 @@ type dataSourceQualityGates struct {
 	p provider
 }
 
-func (d dataSourceQualityGates) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
+func (d dataSourceQualityGates) Read(ctx context.Context, _ tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
 	var diags diag.Diagnostics
 
 	request := qualitygates.ListRequest{}

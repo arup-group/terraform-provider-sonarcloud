@@ -12,7 +12,7 @@ import (
 
 type dataSourceQualityGateType struct{}
 
-func (d dataSourceQualityGateType) GetSchema(__ context.Context) (tfsdk.Schema, diag.Diagnostics) {
+func (d dataSourceQualityGateType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		Description: "This Data Source retrieves a single Quality Gate for the configured Organization.",
 		Attributes: map[string]tfsdk.Attribute{

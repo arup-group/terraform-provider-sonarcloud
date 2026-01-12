@@ -40,7 +40,7 @@ func TestAccResourceProjectMainBranch(t *testing.T) {
 	})
 }
 
-func testAccProjectMainBranchDestroy(s *terraform.State) error {
+func testAccProjectMainBranchDestroy(_ *terraform.State) error {
 	return nil
 }
 

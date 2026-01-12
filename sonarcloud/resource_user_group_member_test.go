@@ -38,7 +38,7 @@ func TestAccUserGroupMember(t *testing.T) {
 	})
 }
 
-func testAccUserGroupMemberDestroy(s *terraform.State) error {
+func testAccUserGroupMemberDestroy(_ *terraform.State) error {
 	return nil
 }
 

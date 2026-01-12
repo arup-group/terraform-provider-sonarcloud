@@ -42,7 +42,7 @@ import (
 // 	})
 // }
 
-func testAccUserGroupDestroy(s *terraform.State) error {
+func testAccUserGroupDestroy(_ *terraform.State) error {
 	return nil
 }
 

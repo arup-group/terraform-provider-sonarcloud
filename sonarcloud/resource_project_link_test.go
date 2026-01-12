@@ -47,7 +47,7 @@ func TestAccProjectLink(t *testing.T) {
 	})
 }
 
-func testAccLinkDestroy(s *terraform.State) error {
+func testAccLinkDestroy(_ *terraform.State) error {
 	return nil
 }
 

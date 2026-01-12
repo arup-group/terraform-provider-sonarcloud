@@ -99,7 +99,7 @@ func TestAccUserGroupPermissions(t *testing.T) {
 	})
 }
 
-func testAccPermissionDestroy(s *terraform.State) error {
+func testAccPermissionDestroy(_ *terraform.State) error {
 	return nil
 }
 

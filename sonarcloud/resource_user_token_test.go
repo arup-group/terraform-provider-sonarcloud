@@ -36,7 +36,7 @@ func TestAccUserToken(t *testing.T) {
 	})
 }
 
-func testAccUserTokenDestroy(s *terraform.State) error {
+func testAccUserTokenDestroy(_ *terraform.State) error {
 	return nil
 }
 

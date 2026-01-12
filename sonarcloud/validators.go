@@ -17,11 +17,11 @@ func stringLengthBetween(minLen int, max int) *stringLengthBetweenValidator {
 	return &stringLengthBetweenValidator{Min: minLen, Max: max}
 }
 
-func (v stringLengthBetweenValidator) Description(ctx context.Context) string {
+func (v stringLengthBetweenValidator) Description(_ context.Context) string {
 	return fmt.Sprintf("string length must be between %d and %d", v.Min, v.Max)
 }
 
-func (v stringLengthBetweenValidator) MarkdownDescription(ctx context.Context) string {
+func (v stringLengthBetweenValidator) MarkdownDescription(_ context.Context) string {
 	return fmt.Sprintf("string length must be between `%d` and `%d`", v.Min, v.Max)
 }
 

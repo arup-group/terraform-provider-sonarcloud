@@ -138,7 +138,7 @@ func (r resourceProjectLink) Read(ctx context.Context, req tfsdk.ReadResourceReq
 	}
 }
 
-func (r resourceProjectLink) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r resourceProjectLink) Update(_ context.Context, _ tfsdk.UpdateResourceRequest, _ *tfsdk.UpdateResourceResponse) {
 	// NOOP, we always need to recreate
 }
 

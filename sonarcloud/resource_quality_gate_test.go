@@ -46,7 +46,7 @@ func TestAccResourceQualityGate(t *testing.T) {
 	})
 }
 
-func testAccQualityGateDestroy(s *terraform.State) error {
+func testAccQualityGateDestroy(_ *terraform.State) error {
 	return nil
 }
 
