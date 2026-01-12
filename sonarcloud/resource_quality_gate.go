@@ -333,10 +333,10 @@ func (r resourceQualityGate) handleConditionUpdates(conditions []Condition, resp
 }
 
 // handleConditionCreates handles creating new conditions
-func (r resourceQualityGate) handleConditionCreates(gateId types.Float64, conditions []Condition, resp *tfsdk.UpdateResourceResponse) bool {
+func (r resourceQualityGate) handleConditionCreates(gateID types.Float64, conditions []Condition, resp *tfsdk.UpdateResourceResponse) bool {
 	for _, c := range conditions {
 		request := qualitygates.CreateConditionRequest{
-			GateId:       fmt.Sprintf("%d", int(gateId.Value)),
+			GateId:       fmt.Sprintf("%d", int(gateID.Value)),
 			Error:        c.Error.Value,
 			Metric:       c.Metric.Value,
 			Op:           c.Op.Value,

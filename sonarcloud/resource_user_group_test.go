@@ -42,6 +42,7 @@ import (
 // 	})
 // }
 
+//nolint:unused // Kept for commented-out test
 func testAccUserGroupDestroy(_ *terraform.State) error {
 	return nil
 }

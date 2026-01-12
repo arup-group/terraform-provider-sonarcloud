@@ -125,7 +125,7 @@ func (d dataSourceQualityGate) Read(ctx context.Context, req tfsdk.ReadDataSourc
 		}
 	}
 
-	diags = resp.State.Set(ctx, result)
+	diags := resp.State.Set(ctx, result)
 
 	resp.Diagnostics.Append(diags...)
 }

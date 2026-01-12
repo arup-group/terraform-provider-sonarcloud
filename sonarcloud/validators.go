@@ -13,8 +13,9 @@ type stringLengthBetweenValidator struct {
 	Max int
 }
 
-func stringLengthBetween(minLen int, max int) *stringLengthBetweenValidator {
-	return &stringLengthBetweenValidator{Min: minLen, Max: max}
+//nolint:unparam // minLen parameter is designed for flexibility
+func stringLengthBetween(minLen int, maxLen int) *stringLengthBetweenValidator {
+	return &stringLengthBetweenValidator{Min: minLen, Max: maxLen}
 }
 
 func (v stringLengthBetweenValidator) Description(_ context.Context) string {

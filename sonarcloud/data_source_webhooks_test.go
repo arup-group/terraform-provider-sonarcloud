@@ -8,6 +8,7 @@ import (
 
 //nolint:unused // Kept for future test expansion
 func testAccPreCheckDataSourceWebhooks(t *testing.T) {
+	t.Helper()
 	if v := os.Getenv("SONARCLOUD_PROJECT_KEY"); v == "" {
 		t.Fatal("SONARCLOUD_PROJECT_KEY must be set for acceptance tests")
 	}
