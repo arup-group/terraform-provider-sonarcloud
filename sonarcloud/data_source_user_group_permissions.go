@@ -107,5 +107,4 @@ func (d dataSourceUserGroupPermissions) Read(ctx context.Context, req tfsdk.Read
 	diags = resp.State.Set(ctx, result)
 
 	resp.Diagnostics.Append(diags...)
-
 }

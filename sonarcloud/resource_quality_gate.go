@@ -111,7 +111,7 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
-			"The provider hasn't been configured before apply, likely because it depends on an unkown value from another resource. "+
+			"The provider hasn't been configured before apply, likely because it depends on an unknown value from another resource. "+
 				"This leads to weird stuff happening, so we'd prefer if you didn't do that. Thanks!",
 		)
 		return
@@ -209,7 +209,7 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 }
 
 func (r resourceQualityGate) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
-	//Retrieve values from state
+	// Retrieve values from state
 	var state QualityGate
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -374,7 +374,7 @@ func (r resourceQualityGate) handleConditionDeletes(conditions []Condition, resp
 }
 
 func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
-	//retrieve values from state
+	// retrieve values from state
 	var state QualityGate
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)

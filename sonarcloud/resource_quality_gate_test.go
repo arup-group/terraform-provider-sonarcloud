@@ -64,7 +64,6 @@ resource "sonarcloud_quality_gate" "test" {
 	]
 }
 	`, name, def, metric, err, op)
-
 }
 
 func qualityGateImportCheck(resourceName, name string) resource.TestStep {
