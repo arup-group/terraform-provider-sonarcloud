@@ -479,19 +479,13 @@ func (r resourceQualityGate) ImportState(ctx context.Context, req tfsdk.ImportRe
 }
 
 // Check if quality Gate name is the same
-func diffName(old, new QualityGate) bool {
-	if old.Name.Equal(new.Name) {
-		return false
-	}
-	return true
+func diffName(old, updated QualityGate) bool {
+	return !old.Name.Equal(updated.Name)
 }
 
 // Check if a Quality Gate has been set to default
-func diffDefault(old, new QualityGate) bool {
-	if old.IsDefault.Equal(new.IsDefault) {
-		return false
-	}
-	return true
+func diffDefault(old, updated QualityGate) bool {
+	return !old.IsDefault.Equal(updated.IsDefault)
 }
 
 // Check if Quality Gate Conditions are different
