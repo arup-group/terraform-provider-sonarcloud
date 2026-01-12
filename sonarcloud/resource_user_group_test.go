@@ -46,6 +46,7 @@ func testAccUserGroupDestroy(_ *terraform.State) error {
 	return nil
 }
 
+//nolint:unused // Kept for future test expansion
 func testAccUserGroupConfig(name string, description string) string {
 	return fmt.Sprintf(`
 resource "sonarcloud_user_group" "test_group" {

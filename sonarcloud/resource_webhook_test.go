@@ -85,6 +85,7 @@ resource "sonarcloud_webhook" "test" {
 	return result
 }
 
+//nolint:unparam // resourceName is a parameter by design for consistency with other test helpers
 func webhookImportCheck(resourceName, project string) resource.TestStep {
 	return resource.TestStep{
 		ResourceName: resourceName,

@@ -118,6 +118,7 @@ func permissionsListString(permissions []string) string {
 	return fmt.Sprintf(`["%s"]`, strings.Join(permissions, `","`))
 }
 
+//nolint:unparam // resourceName is a parameter by design for consistency with other test helpers
 func userGroupPermissionsImportCheck(resourceName, name, projectKey string) resource.TestStep {
 	return resource.TestStep{
 		ResourceName:      resourceName,

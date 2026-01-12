@@ -10,6 +10,7 @@ import (
 )
 
 func testAccPreCheckUserToken(t *testing.T) {
+	t.Helper()
 	if v := os.Getenv("SONARCLOUD_TOKEN_TEST_USER_LOGIN"); v == "" {
 		t.Fatal("SONARCLOUD_TOKEN_TEST_USER_LOGIN must be set for acceptance tests")
 	}

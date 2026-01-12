@@ -9,6 +9,7 @@ import (
 )
 
 func testAccPreCheckUserGroupMember(t *testing.T) {
+	t.Helper()
 	if v := os.Getenv("SONARCLOUD_TEST_USER_LOGIN"); v == "" {
 		t.Fatal("SONARCLOUD_TEST_USER_LOGIN must be set for acceptance tests")
 	}
