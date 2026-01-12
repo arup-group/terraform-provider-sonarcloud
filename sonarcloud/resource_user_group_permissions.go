@@ -104,9 +104,9 @@ func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.Crea
 	wg := sync.WaitGroup{}
 	for _, elem := range plan.Permissions.Elems {
 		permission := elem.(types.String).Value
+		wg.Add(1)
 
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
 
 			request := permissions.AddGroupRequest{
