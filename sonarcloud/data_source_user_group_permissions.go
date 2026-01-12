@@ -86,7 +86,7 @@ func (d dataSourceUserGroupPermissions) Read(ctx context.Context, req tfsdk.Read
 	}
 
 	result := DataUserGroupPermissions{}
-	var allGroups []DataUserGroupPermissionsGroup
+	allGroups := make([]DataUserGroupPermissionsGroup, 0, len(groups))
 	for _, group := range groups {
 		permissionsElems := make([]attr.Value, len(group.Permissions))
 		for i, permission := range group.Permissions {

@@ -114,7 +114,7 @@ func (d dataSourceQualityGates) Read(ctx context.Context, req tfsdk.ReadDataSour
 	}
 
 	result := QualityGates{}
-	var allQualityGates []QualityGate
+	allQualityGates := make([]QualityGate, 0, len(response.Qualitygates))
 	for _, qualityGate := range response.Qualitygates {
 		var allConditions []Condition
 		for _, condition := range qualityGate.Conditions {
