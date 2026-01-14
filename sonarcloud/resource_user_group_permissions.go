@@ -106,12 +106,12 @@ func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.Crea
 		permission := elem.(types.String).Value
 		wg.Add(1)
 
-		go func() {
+		go func(perm string) {
 			defer wg.Done()
 
 			request := permissions.AddGroupRequest{
 				GroupName:    plan.Name.Value,
-				Permission:   permission,
+				Permission:   perm,
 				ProjectKey:   plan.ProjectKey.Value,
 				Organization: r.p.organization,
 			}
@@ -122,7 +122,7 @@ func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.Crea
 				)
 				return
 			}
-		}()
+		}(permission)
 	}
 
 	// Async wait for all requests to be done
