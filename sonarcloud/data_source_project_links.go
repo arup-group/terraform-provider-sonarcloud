@@ -1,3 +1,4 @@
+// Package sonarcloud implements Terraform Provider for SonarCloud.
 package sonarcloud
 
 import (

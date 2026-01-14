@@ -89,7 +89,7 @@ func (d dataSourceUserPermissions) Read(ctx context.Context, req tfsdk.ReadDataS
 	}
 
 	result := DataUserPermissions{}
-	var allUsers []DataUserPermissionsUser
+	allUsers := make([]DataUserPermissionsUser, 0, len(users))
 	for _, user := range users {
 		permissionsElems := make([]attr.Value, len(user.Permissions))
 		for i, permission := range user.Permissions {
@@ -110,5 +110,4 @@ func (d dataSourceUserPermissions) Read(ctx context.Context, req tfsdk.ReadDataS
 	diags = resp.State.Set(ctx, result)
 
 	resp.Diagnostics.Append(diags...)
-
 }

@@ -35,6 +35,7 @@ func repoRoot() string {
 	return absolutePath
 }
 func testAccPreCheck(t *testing.T) {
+	t.Helper()
 	if v := os.Getenv("SONARCLOUD_ORGANIZATION"); v == "" {
 		t.Fatal("SONARCLOUD_ORGANIZATION must be set for acceptance tests")
 	}

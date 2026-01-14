@@ -138,7 +138,7 @@ func (r resourceProjectLink) Read(ctx context.Context, req tfsdk.ReadResourceReq
 	}
 }
 
-func (r resourceProjectLink) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r resourceProjectLink) Update(_ context.Context, _ tfsdk.UpdateResourceRequest, _ *tfsdk.UpdateResourceResponse) {
 	// NOOP, we always need to recreate
 }
 
@@ -180,14 +180,14 @@ func (r resourceProjectLink) ImportState(ctx context.Context, req tfsdk.ImportRe
 }
 
 // findProjectLink returns the link with the given id, if it exists in the response
-func findProjectLink(response *project_links.SearchResponse, id, project_key string) (ProjectLink, bool) {
+func findProjectLink(response *project_links.SearchResponse, id, projectKey string) (ProjectLink, bool) {
 	var result ProjectLink
 	ok := false
 	for _, link := range response.Links {
 		if link.Id == id {
 			result = ProjectLink{
 				ID:         types.String{Value: link.Id},
-				ProjectKey: types.String{Value: project_key},
+				ProjectKey: types.String{Value: projectKey},
 				Name:       types.String{Value: link.Name},
 				Url:        types.String{Value: link.Url},
 			}

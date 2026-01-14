@@ -86,7 +86,7 @@ func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.Crea
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
-			"The provider hasn't been configured before apply, likely because it depends on an unkown value from another resource. "+
+			"The provider hasn't been configured before apply, likely because it depends on an unknown value from another resource. "+
 				"This leads to weird stuff happening, so we'd prefer if you didn't do that. Thanks!",
 		)
 		return
@@ -104,9 +104,9 @@ func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.Crea
 	wg := sync.WaitGroup{}
 	for _, elem := range plan.Permissions.Elems {
 		permission := elem.(types.String).Value
+		wg.Add(1)
 
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
 
 			request := permissions.AddGroupRequest{
@@ -326,12 +326,14 @@ func (r resourceUserGroupPermissions) ImportState(ctx context.Context, req tfsdk
 	}
 }
 
+// UserGroupPermissionsSearchRequest represents a search request for user group permissions.
 type UserGroupPermissionsSearchRequest struct {
 	ProjectKey string
 }
 
+// UserGroupPermissionsSearchResponseGroup represents a user group in the permissions search response.
 type UserGroupPermissionsSearchResponseGroup struct {
-	Id          string   `json:"id,omitempty"`
+	Id          string   `json:"id,omitempty"` //nolint:revive // Field name matches API response
 	Name        string   `json:"name,omitempty"`
 	Description string   `json:"description,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`

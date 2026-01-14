@@ -11,24 +11,25 @@ import (
 )
 
 func testAccPreCheckQualityGateSelection(t *testing.T) {
+	t.Helper()
 	if v := os.Getenv("SONARCLOUD_PROJECT_KEY"); v == "" {
 		t.Fatal("SONARCLOUD_PROJECT_KEY must be set for acceptance tests")
 	}
 }
 
 func TestAccResourceQualityGateSelection(t *testing.T) {
-	project_key := os.Getenv("SONARCLOUD_PROJECT_KEY")
+	projectKey := os.Getenv("SONARCLOUD_PROJECT_KEY")
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t); testAccPreCheckQualityGateSelection(t) },
 		ProtoV6ProviderFactories: testAccProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccQualityGateSelectionConfig(project_key),
+				Config: testAccQualityGateSelectionConfig(projectKey),
 				Check: resource.ComposeTestCheckFunc(
 					// compare the gate_id between the created quality gate resource and the selection resource
 					resource.TestCheckResourceAttrPair("sonarcloud_quality_gate_selection.test", "gate_id", "sonarcloud_quality_gate.test", "gate_id"),
-					resource.TestCheckResourceAttr("sonarcloud_quality_gate_selection.test", "project_keys.0", project_key),
+					resource.TestCheckResourceAttr("sonarcloud_quality_gate_selection.test", "project_keys.0", projectKey),
 				),
 			},
 		},

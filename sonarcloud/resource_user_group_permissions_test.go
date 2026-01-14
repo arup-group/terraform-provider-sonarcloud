@@ -30,7 +30,7 @@ func TestAccUserGroupPermissions(t *testing.T) {
 					resource.TestCheckResourceAttr("sonarcloud_user_group_permissions.test_permission", "project_key", ""),
 					resource.TestCheckResourceAttr("sonarcloud_user_group_permissions.test_permission", "name", name),
 					//! TODO `description` is set to computed, but is currently coming back empty -> unset
-					//resource.TestCheckResourceAttrSet("sonarcloud_user_group_permissions.test_permission", "description"),
+					// resource.TestCheckResourceAttrSet("sonarcloud_user_group_permissions.test_permission", "description"),
 					resource.TestCheckResourceAttr("sonarcloud_user_group_permissions.test_permission", "permissions.0", "provisioning"),
 				),
 			},
@@ -99,7 +99,7 @@ func TestAccUserGroupPermissions(t *testing.T) {
 	})
 }
 
-func testAccPermissionDestroy(s *terraform.State) error {
+func testAccPermissionDestroy(_ *terraform.State) error {
 	return nil
 }
 
@@ -118,6 +118,7 @@ func permissionsListString(permissions []string) string {
 	return fmt.Sprintf(`["%s"]`, strings.Join(permissions, `","`))
 }
 
+//nolint:unparam // resourceName is a parameter by design for consistency with other test helpers
 func userGroupPermissionsImportCheck(resourceName, name, projectKey string) resource.TestStep {
 	return resource.TestStep{
 		ResourceName:      resourceName,

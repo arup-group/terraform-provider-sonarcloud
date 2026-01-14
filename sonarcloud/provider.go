@@ -10,6 +10,7 @@ import (
 	"github.com/reinoudk/go-sonarcloud/sonarcloud"
 )
 
+// New creates a new instance of the SonarCloud provider.
 func New() tfsdk.Provider {
 	return &provider{}
 }

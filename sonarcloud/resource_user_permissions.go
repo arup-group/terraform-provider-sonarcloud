@@ -91,7 +91,7 @@ func (r resourceUserPermissions) Create(ctx context.Context, req tfsdk.CreateRes
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
-			"The provider hasn't been configured before apply, likely because it depends on an unkown value from another resource. "+
+			"The provider hasn't been configured before apply, likely because it depends on an unknown value from another resource. "+
 				"This leads to weird stuff happening, so we'd prefer if you didn't do that. Thanks!",
 		)
 		return
@@ -109,9 +109,9 @@ func (r resourceUserPermissions) Create(ctx context.Context, req tfsdk.CreateRes
 	wg := sync.WaitGroup{}
 	for _, elem := range plan.Permissions.Elems {
 		permission := elem.(types.String).Value
+		wg.Add(1)
 
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
 
 			request := permissions.AddUserRequest{
@@ -331,12 +331,14 @@ func (r resourceUserPermissions) ImportState(ctx context.Context, req tfsdk.Impo
 	}
 }
 
+// UserPermissionsSearchRequest represents a search request for user permissions.
 type UserPermissionsSearchRequest struct {
 	ProjectKey string
 }
 
+// UserPermissionsSearchResponseUser represents a user in the permissions search response.
 type UserPermissionsSearchResponseUser struct {
-	Id          string   `json:"id,omitempty"`
+	Id          string   `json:"id,omitempty"` //nolint:revive // Field name matches API response
 	Login       string   `json:"login,omitempty"`
 	Name        string   `json:"name,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`
@@ -379,7 +381,6 @@ func findUserWithPermissionsSet(client *sonarcloud.Client, login, projectKey str
 		Permissions: foundPermissions,
 		Avatar:      types.String{Value: user.Avatar},
 	}, nil
-
 }
 
 // findUser returns the user with the given login, if it exists
