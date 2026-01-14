@@ -106,12 +106,12 @@ func (r resourceUserGroupPermissions) Create(ctx context.Context, req tfsdk.Crea
 		permission := elem.(types.String).Value
 		wg.Add(1)
 
-		go func(perm string) {
+		go func(permission string) {
 			defer wg.Done()
 
 			request := permissions.AddGroupRequest{
 				GroupName:    plan.Name.Value,
-				Permission:   perm,
+				Permission:   permission,
 				ProjectKey:   plan.ProjectKey.Value,
 				Organization: r.p.organization,
 			}

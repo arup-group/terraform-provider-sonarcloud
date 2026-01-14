@@ -111,12 +111,12 @@ func (r resourceUserPermissions) Create(ctx context.Context, req tfsdk.CreateRes
 		permission := elem.(types.String).Value
 		wg.Add(1)
 
-		go func(perm string) {
+		go func(permission string) {
 			defer wg.Done()
 
 			request := permissions.AddUserRequest{
 				Login:        plan.Login.Value,
-				Permission:   perm,
+				Permission:   permission,
 				ProjectKey:   plan.ProjectKey.Value,
 				Organization: r.p.organization,
 			}
