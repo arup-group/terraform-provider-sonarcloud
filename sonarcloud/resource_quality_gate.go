@@ -111,7 +111,7 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 	if !r.p.configured {
 		resp.Diagnostics.AddError(
 			"Provider not configured",
-			"The provider hasn't been configured before apply, likely because it depends on an unkown value from another resource. "+
+			"The provider hasn't been configured before apply, likely because it depends on an unknown value from another resource. "+
 				"This leads to weird stuff happening, so we'd prefer if you didn't do that. Thanks!",
 		)
 		return
@@ -160,9 +160,8 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 		}
 	}
 
-	conditionRequests := qualitygates.CreateConditionRequest{}
 	for _, conditionPlan := range plan.Conditions {
-		conditionRequests = qualitygates.CreateConditionRequest{
+		conditionRequests := qualitygates.CreateConditionRequest{
 			Error:        conditionPlan.Error.Value,
 			GateId:       fmt.Sprintf("%d", int(result.GateId.Value)),
 			Metric:       conditionPlan.Metric.Value,
@@ -210,7 +209,7 @@ func (r resourceQualityGate) Create(ctx context.Context, req tfsdk.CreateResourc
 }
 
 func (r resourceQualityGate) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
-	//Retrieve values from state
+	// Retrieve values from state
 	var state QualityGate
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -246,8 +245,136 @@ func (r resourceQualityGate) Read(ctx context.Context, req tfsdk.ReadResourceReq
 // https://github.com/adnsio/terraform-provider-k0s/blob/c8db5204e70e15484973d5680fe14ed184e719ef/internal/provider/cluster_resource.go#L366
 // https://github.com/devopsarr/terraform-provider-sonarr/blob/078ba51ca03a7782af5fbaaf48f6ebd15284116c/internal/provider/quality_profile_resource.go (DOUBLE NESTED!!! :O)
 // Thanks to those who wrote the above resources, they really helped me (Arnav Bhutani @Bhutania) out :)
+
+// handleRename handles the rename operation for a quality gate
+func (r resourceQualityGate) handleRename(state, plan QualityGate, resp *tfsdk.UpdateResourceResponse) bool {
+	if !diffName(state, plan) {
+		return true
+	}
+
+	request := qualitygates.RenameRequest{
+		Id:           fmt.Sprintf("%d", int(state.GateId.Value)),
+		Name:         plan.Name.Value,
+		Organization: r.p.organization,
+	}
+
+	err := r.p.client.Qualitygates.Rename(request)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Could not update Quality Gate Name.",
+			fmt.Sprintf("The Rename request returned an error: %+v", err),
+		)
+		return false
+	}
+	return true
+}
+
+// handleDefaultChange handles the default status change for a quality gate
+func (r resourceQualityGate) handleDefaultChange(state, plan QualityGate, resp *tfsdk.UpdateResourceResponse) bool {
+	if !diffDefault(state, plan) {
+		return true
+	}
+
+	if plan.IsDefault.Equal(types.Bool{Value: true}) {
+		request := qualitygates.SetAsDefaultRequest{
+			Id:           fmt.Sprintf("%d", int(state.GateId.Value)),
+			Organization: r.p.organization,
+		}
+		err := r.p.client.Qualitygates.SetAsDefault(request)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Could not set Quality Gate as Default.",
+				fmt.Sprintf("The SetAsDefault request returned an error %+v", err),
+			)
+			return false
+		}
+	}
+
+	// Hard coded default present in all repositories (Sonar way)
+	// This assumes that the Sonar way default quality gate will
+	// never change its ID and remain the default forever.
+	if plan.IsDefault.Equal(types.Bool{Value: false}) {
+		request := qualitygates.SetAsDefaultRequest{
+			Id:           "9",
+			Organization: r.p.organization,
+		}
+		err := r.p.client.Qualitygates.SetAsDefault(request)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Could not set `Sonar Way` quality gate to default",
+				fmt.Sprintf("The SetAsDefault request returned an error %+v", err),
+			)
+		}
+	}
+	return true
+}
+
+// handleConditionUpdates handles updating existing conditions
+func (r resourceQualityGate) handleConditionUpdates(conditions []Condition, resp *tfsdk.UpdateResourceResponse) bool {
+	for _, c := range conditions {
+		request := qualitygates.UpdateConditionRequest{
+			Error:        c.Error.Value,
+			Id:           fmt.Sprintf("%d", int(c.ID.Value)),
+			Metric:       c.Metric.Value,
+			Op:           c.Op.Value,
+			Organization: r.p.organization,
+		}
+
+		err := r.p.client.Qualitygates.UpdateCondition(request)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Could not update QualityGate condition",
+				fmt.Sprintf("The UpdateCondition request returned an error %+v", err),
+			)
+			return false
+		}
+	}
+	return true
+}
+
+// handleConditionCreates handles creating new conditions
+func (r resourceQualityGate) handleConditionCreates(gateID types.Float64, conditions []Condition, resp *tfsdk.UpdateResourceResponse) bool {
+	for _, c := range conditions {
+		request := qualitygates.CreateConditionRequest{
+			GateId:       fmt.Sprintf("%d", int(gateID.Value)),
+			Error:        c.Error.Value,
+			Metric:       c.Metric.Value,
+			Op:           c.Op.Value,
+			Organization: r.p.organization,
+		}
+		_, err := r.p.client.Qualitygates.CreateCondition(request)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Could not create QualityGate condition",
+				fmt.Sprintf("The CreateCondition request returned an error %+v", err),
+			)
+			return false
+		}
+	}
+	return true
+}
+
+// handleConditionDeletes handles deleting conditions
+func (r resourceQualityGate) handleConditionDeletes(conditions []Condition, resp *tfsdk.UpdateResourceResponse) bool {
+	for _, c := range conditions {
+		request := qualitygates.DeleteConditionRequest{
+			Id:           fmt.Sprintf("%d", int(c.ID.Value)),
+			Organization: r.p.organization,
+		}
+		err := r.p.client.Qualitygates.DeleteCondition(request)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Could not delete QualityGate condition",
+				fmt.Sprintf("The DeleteCondition request returned an error %+v", err),
+			)
+			return false
+		}
+	}
+	return true
+}
+
 func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
-	//retrieve values from state
+	// retrieve values from state
 	var state QualityGate
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -263,113 +390,28 @@ func (r resourceQualityGate) Update(ctx context.Context, req tfsdk.UpdateResourc
 		return
 	}
 
-	if diffName(state, plan) {
-		request := qualitygates.RenameRequest{
-			Id:           fmt.Sprintf("%d", int(state.GateId.Value)),
-			Name:         plan.Name.Value,
-			Organization: r.p.organization,
-		}
-
-		err := r.p.client.Qualitygates.Rename(request)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Could not update Quality Gate Name.",
-				fmt.Sprintf("The Rename request returned an error: %+v", err),
-			)
-			return
-		}
+	if !r.handleRename(state, plan, resp) {
+		return
 	}
 
-	if diffDefault(state, plan) {
-		if plan.IsDefault.Equal(types.Bool{Value: true}) {
-			request := qualitygates.SetAsDefaultRequest{
-				Id:           fmt.Sprintf("%d", int(state.GateId.Value)),
-				Organization: r.p.organization,
-			}
-			err := r.p.client.Qualitygates.SetAsDefault(request)
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Could not set Quality Gate as Default.",
-					fmt.Sprintf("The SetAsDefault request returned an error %+v", err),
-				)
-				return
-			}
-		}
-		// Hard coded default present in all repositories (Sonar way)
-		// This assumes that the Sonar way default quality gate will
-		// never change its ID and remain the default forever.
-		if plan.IsDefault.Equal(types.Bool{Value: false}) {
-			request := qualitygates.SetAsDefaultRequest{
-				Id:           "9",
-				Organization: r.p.organization,
-			}
-			err := r.p.client.Qualitygates.SetAsDefault(request)
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Could not set `Sonar Way` quality gate to default",
-					fmt.Sprintf("The SetAsDefault request returned an error %+v", err),
-				)
-			}
-		}
+	if !r.handleDefaultChange(state, plan, resp) {
+		return
 	}
 
 	toCreate, toUpdate, toRemove := diffConditions(state.Conditions, plan.Conditions)
 
-	if len(toUpdate) > 0 {
-		for _, c := range toUpdate {
-			request := qualitygates.UpdateConditionRequest{
-				Error:        c.Error.Value,
-				Id:           fmt.Sprintf("%d", int(c.ID.Value)),
-				Metric:       c.Metric.Value,
-				Op:           c.Op.Value,
-				Organization: r.p.organization,
-			}
+	if len(toUpdate) > 0 && !r.handleConditionUpdates(toUpdate, resp) {
+		return
+	}
 
-			err := r.p.client.Qualitygates.UpdateCondition(request)
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Could not update QualityGate condition",
-					fmt.Sprintf("The UpdateCondition request returned an error %+v", err),
-				)
-				return
-			}
-		}
+	if len(toCreate) > 0 && !r.handleConditionCreates(state.GateId, toCreate, resp) {
+		return
 	}
-	if len(toCreate) > 0 {
-		for _, c := range toCreate {
-			request := qualitygates.CreateConditionRequest{
-				GateId:       fmt.Sprintf("%d", int(state.GateId.Value)),
-				Error:        c.Error.Value,
-				Metric:       c.Metric.Value,
-				Op:           c.Op.Value,
-				Organization: r.p.organization,
-			}
-			_, err := r.p.client.Qualitygates.CreateCondition(request)
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Could not create QualityGate condition",
-					fmt.Sprintf("The CreateCondition request returned an error %+v", err),
-				)
-				return
-			}
-		}
+
+	if len(toRemove) > 0 && !r.handleConditionDeletes(toRemove, resp) {
+		return
 	}
-	if len(toRemove) > 0 {
-		for _, c := range toRemove {
-			request := qualitygates.DeleteConditionRequest{
-				Id:           fmt.Sprintf("%d", int(c.ID.Value)),
-				Organization: r.p.organization,
-			}
-			err := r.p.client.Qualitygates.DeleteCondition(request)
-			if err != nil {
-				resp.Diagnostics.AddError(
-					"Could not delete QualityGate condition",
-					fmt.Sprintf("The DeleteCondition request returned an error %+v", err),
-				)
-				return
-			}
-		}
-	}
+
 	// There aren't any return values for non-create operations.
 	listRequest := qualitygates.ListRequest{
 		Organization: r.p.organization,
@@ -437,41 +479,35 @@ func (r resourceQualityGate) ImportState(ctx context.Context, req tfsdk.ImportRe
 }
 
 // Check if quality Gate name is the same
-func diffName(old, new QualityGate) bool {
-	if old.Name.Equal(new.Name) {
-		return false
-	}
-	return true
+func diffName(old, updated QualityGate) bool {
+	return !old.Name.Equal(updated.Name)
 }
 
 // Check if a Quality Gate has been set to default
-func diffDefault(old, new QualityGate) bool {
-	if old.IsDefault.Equal(new.IsDefault) {
-		return false
-	}
-	return true
+func diffDefault(old, updated QualityGate) bool {
+	return !old.IsDefault.Equal(updated.IsDefault)
 }
 
 // Check if Quality Gate Conditions are different
-func diffConditions(old, new []Condition) (create, update, remove []Condition) {
+func diffConditions(old, updated []Condition) (create, updateList, remove []Condition) {
 	create = []Condition{}
 	remove = []Condition{}
-	update = []Condition{}
+	updateList = []Condition{}
 
-	for _, c := range new {
+	for _, c := range updated {
 		if !containsCondition(old, c) {
 			create = append(create, c)
 		} else {
-			update = append(update, c)
+			updateList = append(updateList, c)
 		}
 	}
 	for _, c := range old {
-		if !containsCondition(new, c) {
+		if !containsCondition(updated, c) {
 			remove = append(remove, c)
 		}
 	}
 
-	return create, update, remove
+	return create, updateList, remove
 }
 
 // Check if a condition is contained in a condition list

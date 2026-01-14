@@ -26,6 +26,37 @@ If you wish to work on the provider, you'll first need [Go](http://www.golang.or
 
 To compile the provider, run `make build`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
 
+### Code Quality and Linting
+
+This project uses [golangci-lint](https://golangci-lint.run/) to enforce Go coding standards and catch common issues. The linter is configured to check for:
+
+- Variable naming conventions (camelCase, not snake_case)
+- Unused parameters and variables
+- Common bugs and anti-patterns
+- Code style issues
+
+#### Using pre-commit hooks
+
+The repository is configured with [pre-commit](https://pre-commit.com/) hooks that automatically run checks before each commit:
+
+1. Install pre-commit: `uv tool install pre-commit`
+2. Install the git hooks: `pre-commit install`
+3. (Optional) Run against all files: `pre-commit run --all-files`
+
+The hooks will automatically run `golangci-lint` on modified files before each commit. To manually run the linter on all files:
+
+```bash
+golangci-lint run --config .golangci.yml ./...
+```
+
+Or use pre-commit to run the full linter check:
+
+```bash
+pre-commit run golangci-lint-full --all-files
+```
+
+### Testing
+
 Run `make test` to run all unit tests. This should work without further config and not touch any infrastructure.
 
 Run `make testacc` to run all acceptance tests. This relies on quite a specific test-organization being available in SonarCloud.

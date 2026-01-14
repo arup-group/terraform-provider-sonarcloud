@@ -98,7 +98,7 @@ func TestAccUserPermissions(t *testing.T) {
 	})
 }
 
-func testAccUserPermissionDestroy(s *terraform.State) error {
+func testAccUserPermissionDestroy(_ *terraform.State) error {
 	return nil
 }
 
@@ -113,6 +113,7 @@ resource "sonarcloud_user_permissions" "test_permission" {
 	return result
 }
 
+//nolint:unparam // resourceName is a parameter by design for consistency with other test helpers
 func userPermissionsImportCheck(resourceName, name, projectKey string) resource.TestStep {
 	return resource.TestStep{
 		ResourceName:      resourceName,

@@ -1,0 +1,99 @@
+---
+version: 2
+
+run:
+  timeout: 5m
+  go: '1.24'
+
+linters:
+  enable:
+  # Enabled by default
+  - govet  # Vet examines Go source code and reports suspicious constructs
+  - errcheck  # Errcheck is a program for checking for unchecked errors in go programs
+  - staticcheck  # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
+  - unused  # Checks Go code for unused constants, variables, functions and types
+  - ineffassign  # Detects when assignments to existing variables are not used
+
+  # Style and naming conventions
+  - revive  # Fast, configurable, extensible, flexible, and beautiful linter for Go (drop-in replacement of golint)
+
+  # Bug detection
+  - bodyclose  # Checks whether HTTP response body is closed successfully
+  - gocritic  # Provides diagnostics that check for bugs, performance and style issues
+  - gosec  # Inspects source code for security problems
+  - nilerr  # Finds code that returns nil even if it checks that the error is not nil
+  - nilnesserr  # Reports constructs that checks for err != nil, but returns a different nil value error
+  - unconvert  # Remove unnecessary type conversions
+  - unparam  # Reports unused function parameters
+  - wastedassign  # Finds wasted assignment statements
+
+  # Performance
+  - prealloc  # Find slice declarations that could potentially be pre-allocated
+
+  # Code complexity
+  - gocyclo  # Computes and checks the cyclomatic complexity of functions
+  - gocognit  # Computes and checks the cognitive complexity of functions
+
+  # Error handling
+  - errorlint  # Find code that can cause problems with the error wrapping scheme introduced in Go 1.13
+  - errname  # Checks that sentinel errors are prefixed with the Err and error types are suffixed with the Error
+
+  # Code quality
+  - goconst  # Finds repeated strings that could be replaced by a constant
+  - misspell  # Finds commonly misspelled English words
+  - predeclared  # Find code that shadows one of Go's predeclared identifiers
+  - whitespace  # Checks for unnecessary newlines at the start and end of functions, if, for, etc
+
+  # Testing
+  - thelper  # Detects test helpers which do not start with t.Helper() method
+
+linters-settings:
+  revive:
+    rules:
+    - name: var-naming
+      severity: warning
+      disabled: false
+      arguments:
+      - ["ID", "URL", "HTTP", "API", "JSON", "XML", "HTML", "SQL"]  # Allow common Go acronyms as uppercase
+    - name: exported
+      severity: warning
+      disabled: false
+
+  gocritic:
+    enabled-tags:
+    - diagnostic
+    - style
+    - performance
+    - experimental
+    - opinionated
+    disabled-checks:
+    - whyNoLint
+    - commentedOutCode
+
+  gocyclo:
+    min-complexity: 15  # Reasonable threshold - functions above this should be refactored
+
+  gocognit:
+    min-complexity: 30  # Higher threshold as cognitive complexity is stricter than cyclomatic
+
+  gosec:
+    excludes:
+    - G104  # Audit errors not checked - covered by errcheck
+
+  errorlint:
+    errorf: true
+    asserts: true
+    comparison: true
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+  # Exclude some linters from running on tests files
+  - path: _test\.go
+    linters:
+    - gocyclo
+    - gocognit
+    - funlen
+    - goconst

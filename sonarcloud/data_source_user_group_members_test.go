@@ -1,7 +1,6 @@
 package sonarcloud
 
 import (
-	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"testing"
 )
@@ -23,9 +22,9 @@ func TestAccDataSourceUserGroupMembers(t *testing.T) {
 }
 
 func testAccDataSourceUserGroupMembersConfig() string {
-	return fmt.Sprintf(`
+	return `
 data "sonarcloud_user_group_members" "test_members" {
 	group = "Members"
 }
-`)
+`
 }

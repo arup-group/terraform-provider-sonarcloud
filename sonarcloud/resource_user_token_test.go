@@ -10,6 +10,7 @@ import (
 )
 
 func testAccPreCheckUserToken(t *testing.T) {
+	t.Helper()
 	if v := os.Getenv("SONARCLOUD_TOKEN_TEST_USER_LOGIN"); v == "" {
 		t.Fatal("SONARCLOUD_TOKEN_TEST_USER_LOGIN must be set for acceptance tests")
 	}
@@ -36,7 +37,7 @@ func TestAccUserToken(t *testing.T) {
 	})
 }
 
-func testAccUserTokenDestroy(s *terraform.State) error {
+func testAccUserTokenDestroy(_ *terraform.State) error {
 	return nil
 }
 

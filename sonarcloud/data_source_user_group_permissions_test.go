@@ -34,9 +34,9 @@ func TestAccDataSourceUserGroupPermissions(t *testing.T) {
 }
 
 func testAccDataSourceUserGroupPermissionsConfig() string {
-	return fmt.Sprintf(`
+	return `
 data "sonarcloud_user_group_permissions" "test_groups" {}
-`)
+`
 }
 
 func testAccDataSourceUserGroupPermissionsConfigForProject(projectKey string) string {

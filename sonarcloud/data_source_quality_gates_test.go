@@ -1,11 +1,8 @@
 package sonarcloud
 
-import (
-	"fmt"
-)
-
+//nolint:unused // Kept for future test expansion
 func testAccDataSourceQualityGatesConfig() string {
-	return fmt.Sprintf(`
+	return `
 data "sonarcloud_quality_gates" "test_quality_gates" {}
-`)
+`
 }

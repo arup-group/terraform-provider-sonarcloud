@@ -52,7 +52,7 @@ func TestAccResourceProject(t *testing.T) {
 	})
 }
 
-func testAccProjectDestroy(s *terraform.State) error {
+func testAccProjectDestroy(_ *terraform.State) error {
 	return nil
 }
 

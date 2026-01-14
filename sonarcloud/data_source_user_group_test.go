@@ -1,13 +1,10 @@
 package sonarcloud
 
-import (
-	"fmt"
-)
-
+//nolint:unused // Kept for future test expansion
 func testAccDataSourceUserGroupConfig() string {
-	return fmt.Sprintf(`
+	return `
 data "sonarcloud_user_group" "test_group" {
 	name = "TEST_DONT_REMOVE"
 }
-`)
+`
 }

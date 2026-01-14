@@ -32,9 +32,9 @@ func TestAccDataSourceUserPermissions(t *testing.T) {
 }
 
 func testAccDataSourceUserPermissionsConfig() string {
-	return fmt.Sprintf(`
+	return `
 data "sonarcloud_user_permissions" "test_users" {}
-`)
+`
 }
 
 func testAccDataSourceUserPermissionsConfigForProject(projectKey string) string {

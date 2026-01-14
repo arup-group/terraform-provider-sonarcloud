@@ -59,7 +59,7 @@ type dataSourceProjects struct {
 	p provider
 }
 
-func (d dataSourceProjects) Read(ctx context.Context, req tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
+func (d dataSourceProjects) Read(ctx context.Context, _ tfsdk.ReadDataSourceRequest, resp *tfsdk.ReadDataSourceResponse) {
 	var diags diag.Diagnostics
 
 	request := projects.SearchRequest{}

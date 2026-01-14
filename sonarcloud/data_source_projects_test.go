@@ -1,7 +1,6 @@
 package sonarcloud
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -25,7 +24,7 @@ func TestAccDataSourceProjects(t *testing.T) {
 }
 
 func testAccDataSourceProjectsConfig() string {
-	return fmt.Sprintf(`
+	return `
 data "sonarcloud_projects" "test_projects" {}
-`)
+`
 }

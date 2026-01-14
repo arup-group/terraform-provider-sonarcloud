@@ -133,7 +133,7 @@ func (r resourceUserToken) Read(ctx context.Context, req tfsdk.ReadResourceReque
 	}
 }
 
-func (r resourceUserToken) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r resourceUserToken) Update(_ context.Context, _ tfsdk.UpdateResourceRequest, _ *tfsdk.UpdateResourceResponse) {
 	// NOOP, we always need to recreate
 }
 

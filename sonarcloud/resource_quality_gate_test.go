@@ -46,7 +46,7 @@ func TestAccResourceQualityGate(t *testing.T) {
 	})
 }
 
-func testAccQualityGateDestroy(s *terraform.State) error {
+func testAccQualityGateDestroy(_ *terraform.State) error {
 	return nil
 }
 
@@ -64,7 +64,6 @@ resource "sonarcloud_quality_gate" "test" {
 	]
 }
 	`, name, def, metric, err, op)
-
 }
 
 func qualityGateImportCheck(resourceName, name string) resource.TestStep {
