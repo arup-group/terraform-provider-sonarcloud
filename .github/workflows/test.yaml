@@ -54,3 +54,24 @@ jobs:
         flags: acceptance
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}
+  e2e-tests:
+    runs-on: ubuntu-24.04
+    # no use running this if lower level tests failed
+    needs: [acceptance-tests, test]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+    - uses: actions/setup-go@v6.1.0
+      with:
+        go-version: '1.24'
+    - name: Acceptance tests (with coverage)
+      run: make e2e
+      env:
+        SONARCLOUD_ORGANIZATION: ${{ secrets.ACC_TEST_SONARCLOUD_ORGANIZATION }}
+        SONARCLOUD_TOKEN: ${{ secrets.ACC_TEST_SONARCLOUD_TOKEN }}
+        SONARCLOUD_TEST_USER_LOGIN: ${{ secrets.ACC_TEST_SONARCLOUD_TEST_USER_LOGIN }}
+        SONARCLOUD_TEST_GROUP_NAME: ${{ secrets.ACC_TEST_SONARCLOUD_GROUP_NAME }}
+        SONARCLOUD_TOKEN_TEST_USER_LOGIN: ${{ secrets.ACC_TEST_SONARCLOUD_TOKEN_TEST_USER_LOGIN }}
+        SONARCLOUD_PROJECT_KEY: ${{ secrets.ACC_TEST_SONARCLOUD_PROJECT_KEY }}
+        SONARCLOUD_QUALITY_GATE_NAME: ${{ secrets.ACC_TEST_SONARCLOUD_QUALITY_GATE_NAME }}
+        SONARCLOUD_QUALITY_GATE_ID: ${{ secrets.ACC_TEST_SONARCLOUD_QUALITY_GATE_ID }}
