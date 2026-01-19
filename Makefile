@@ -57,11 +57,7 @@ test-coverage:
 	COVER=1 $(MAKE) test
 
 testacc:
-	@if [ "$(COVER)" = "1" ]; then \
-		TF_ACC=1 COVER=1 $(MAKE) test
-	else \
-		TF_ACC=1 $(MAKE) test
-	fi
+	TF_ACC=1 $(MAKE) test
 
 # Convenience target for acceptance test coverage
 testacc-coverage:
@@ -90,4 +86,4 @@ docs:
 docs-check: docs
 	git diff --quiet
 
-.PHONY: docs e2e e2e-coverage
+.PHONY: docs e2e e2e-coverage test testacc testacc-coverage fmt build
