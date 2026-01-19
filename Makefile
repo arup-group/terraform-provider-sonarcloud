@@ -31,7 +31,16 @@ build:
 
 install: build
 	mkdir -p ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
-	cp $(BINARY_GLOB) ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}/terraform-provider-${NAME}
+	set -- $(BINARY_GLOB); \
+	if [ "$$#" -ne 1 ]; then \
+		echo "Expected exactly one build artifact matching '$(BINARY_GLOB)', but found $$# files."; \
+		exit 1; \
+	fi; \
+	if [ ! -f "$$1" ]; then \
+		echo "Build artifact '$$1' is not a valid file."; \
+		exit 1; \
+	fi; \
+	cp "$$1" ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}/terraform-provider-${NAME}
 
 # Local install that builds for the current host and installs into both user plugins and the fixture
 install-local:
