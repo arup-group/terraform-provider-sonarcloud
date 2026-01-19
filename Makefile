@@ -18,8 +18,7 @@ endif
 # Coverage and test flag configuration (centralized to avoid drift)
 COVER?=
 COVER_DIR=coverage
-UNIT_COVER_PROFILE=$(COVER_DIR)/unit/coverage.out
-ACC_COVER_PROFILE=$(COVER_DIR)/acceptance/coverage.out
+COVER_PROFILE=$(COVER_DIR)/coverage.out
 BASE_UNIT_FLAGS?=-timeout=30s -parallel=4
 BASE_ACC_FLAGS?=-timeout 120m -p 1 -v
 COVER_FLAGS?=-covermode=atomic -coverpkg=./...
@@ -48,7 +47,7 @@ install-local:
 test:
 	@if [ "$(COVER)" = "1" ]; then \
 		mkdir -p $(COVER_DIR)/unit; \
-		go test $(BASE_UNIT_FLAGS) $(TESTARGS) $(COVER_FLAGS) -coverprofile=$(UNIT_COVER_PROFILE) $(PKGS); \
+		go test $(BASE_UNIT_FLAGS) $(TESTARGS) $(COVER_FLAGS) -coverprofile=$(COVER_PROFILE) $(PKGS); \
 	else \
 		go test $(BASE_UNIT_FLAGS) $(TESTARGS) $(PKGS); \
 	fi
@@ -59,10 +58,9 @@ test-coverage:
 
 testacc:
 	@if [ "$(COVER)" = "1" ]; then \
-		mkdir -p $(COVER_DIR)/acceptance; \
-		TF_ACC=1 go test $(BASE_ACC_FLAGS) $(TESTARGS) $(COVER_FLAGS) -coverprofile=$(ACC_COVER_PROFILE) $(PKGS); \
+		TF_ACC=1 COVER=1 $(MAKE) test
 	else \
-		TF_ACC=1 go test $(BASE_ACC_FLAGS) $(TESTARGS) $(PKGS); \
+		TF_ACC=1 $(MAKE) test
 	fi
 
 # Convenience target for acceptance test coverage
@@ -79,7 +77,7 @@ e2e: install-local
 	go test -v -timeout 30m ./test/...
 
 # E2E test with coverage
-e2e-coverage:
+e2e-coverage: install-local
 	mkdir -p $(COVER_DIR)/e2e
 	go test -v -timeout 30m $(COVER_FLAGS) -coverprofile=$(COVER_DIR)/e2e/coverage.out ./test/...
 
